@@ -382,8 +382,7 @@ function FirstRun({ onAddTask, onDone }: { onAddTask: () => void; onDone: () => 
   const navigate = useNavigate();
   const [inviting, setInviting] = useState(false);
 
-  // Each step ends in the action that step describes. The first is the accent one — three
-  // ember buttons would point at nothing.
+  // Each step ends in the action that step describes, all three styled the same.
   const stepCard = { display: 'flex', flexDirection: 'column' } as const;
   const stepAction = { marginTop: 'auto', paddingTop: 'var(--sp-6)', alignSelf: 'flex-start' };
 
@@ -430,7 +429,7 @@ function FirstRun({ onAddTask, onDone }: { onAddTask: () => void; onDone: () => 
             leaving the page.
           </p>
           <div style={stepAction}>
-            <Button variant="secondary" onClick={() => navigate('/notes/new')}>
+            <Button variant="primary" onClick={() => navigate('/notes/new')}>
               <FileText size={16} {...ICON} />
               Take a note
             </Button>
@@ -449,7 +448,7 @@ function FirstRun({ onAddTask, onDone }: { onAddTask: () => void; onDone: () => 
           {/* Hand-off needs somebody below you, and a fresh account has nobody — so the
               action here is the one that makes hand-off possible at all. */}
           <div style={stepAction}>
-            <Button variant="secondary" onClick={() => setInviting(true)}>
+            <Button variant="primary" onClick={() => setInviting(true)}>
               <UserPlus size={16} {...ICON} />
               Send invite
             </Button>
