@@ -1,0 +1,3 @@
+/* Runway uses Google Fonts. No brand font files were provided — see readme.md "Font substitution". */
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap");
+:root{--font-core:"Manrope",system-ui,sans-serif;--font-mono:"JetBrains Mono",ui-monospace,monospace}

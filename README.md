@@ -1,0 +1,168 @@
+# Runway
+
+A shared planning surface for small teams: notes, tasks, a scheduler and calendar, task
+hand-off down a reporting line, notifications, and on-demand reports. Built from the
+`design_handoff_runway` bundle — its README is the requirements document, its
+`design-system/` is the authoritative visual system.
+
+```bash
+npm install
+npm run dev
+```
+
+Then open http://127.0.0.1:5173. `npm run build` type-checks and bundles; `npm run preview`
+serves the build.
+
+**Runway starts empty** — one account, a clean board, no invented content. To see the product
+with data in it:
+
+- **Menu → Load demo data**, or open `?demo=1` — a sample team of eight with tasks, notes,
+  folders and history, dated relative to whenever you load it. **Menu → Start from empty**
+  puts it back.
+- The sidebar's member row switches identity. Sign in as someone lower in the tree and the
+  surfaces above them disappear — that is the permission model, not a UI trick. Worth doing
+  with the demo loaded.
+
+The single default account is a placeholder rather than a person: the reporting tree *is* the
+permission model (§4), and there is no sign-up without a backend
+([DECISIONS.md](DECISIONS.md) Q8). Invite real people from Team.
+
+## Stack
+
+Vite + React 18 + TypeScript, `react-router-dom` for routes, `lucide-react` for icons
+(the bundle mandates Lucide 0.469.0). No CSS framework and no state library: the design
+system is plain CSS custom properties, and the store is a reducer plus `localStorage`.
+
+There is no backend in v1 — see [DECISIONS.md](DECISIONS.md) Q8 for the seam where one drops in.
+
+## Layout
+
+```
+src/
+  styles/
+    tokens/          The seven token files, copied verbatim from the handoff
+    design-system.css  The bundle's @import entry point, unchanged
+    app.css          Application styles. Reads tokens only — no hex literal lives here
+  store/
+    types.ts         The object graph: users, folders, tasks, notes, notifications
+    reducer.ts       Every mutation. One write path per object
+    persist.ts       Cached local state, so a returning user never sees a loading screen
+    StoreContext.tsx Provider, the write queue drain, the shared clock, debounce helper
+  domain/
+    tasks.ts         Derived status, grouping, custody chain, calendar lane layout
+    org.ts           The reporting tree: subtree, visibility, hand-off targets, cycle checks
+    reports.ts       Measures derived from task history, computed client-side
+  components/
+    ui/              Primitives: Button, Card, Avatar, Tabs, Dialog, Toast, charts, the mark
+    shell/           Sidebar, top bar, detail panel, action bar, dialogs, search
+    TaskRow.tsx      The shared list row, including the completion flourish
+  screens/           Home, Tasks, Folder, Schedule, Notes, NoteEditor, Team, Reports, Menu
+  data/seed.ts       buildFirstRun() is the default empty state; buildSeed() is the opt-in demo
+  lib/notify.ts      Permission, system notifications, service-worker registration
+public/sw.js         Install, offline shell, notification clicks, a ready `push` handler
+public/manifest.webmanifest
+```
+
+## How the requirements land in the code
+
+| Requirement | Where |
+| --- | --- |
+| Home's four regions in fixed order; per-region empty states; first-run pass | `screens/Home.tsx` |
+| One fixed primary action, reachable without scrolling | `components/shell/ActionBar.tsx` — "Add task", since tracking was removed |
+| Status derived, not set — a task past due with no completion is overdue | `domain/tasks.ts` → `derivedStatus` |
+| Optimistic completion: the flourish runs before the write settles | `components/TaskRow.tsx`, `.strike` in `app.css` |
+| A task with no due date cannot reach the calendar | `domain/tasks.ts` → `scheduleBlockedReason`, enforced again in `reducer.ts` |
+| Append-only history; hand-off auditable | `reducer.ts` → every case appends `TaskEvent`s |
+| Hand-off is downward only; the originator is never cleared | `domain/org.ts` → `handoffTargets`, `domain/tasks.ts` → `custodyChain` |
+| Due dates travel with a hand-off | `reducer.ts` → `task/handoff` never touches `dueAt` |
+| Removing a member re-parents reports and reassigns tasks upward | `reducer.ts` → `org/remove` |
+| A cycle is impossible; the edit is rejected, not partially applied | `domain/org.ts` → `reparentError`, re-checked in `org/reparent` |
+| Notes and tasks searched as one result set | `components/shell/SearchPalette.tsx` |
+| A folder is a destination, not a filter — its tasks and notes on one screen | `screens/Folder.tsx` at `/folders/:folderId` |
+| A note line promoted to a task, with a back-reference both ways | `reducer.ts` → `note/promote`, `screens/NoteEditor.tsx` |
+| Scheduler and calendar as one dataset; dragging issues the same write | `screens/Schedule.tsx` → `place()` calls `task/schedule` |
+| Overlaps rendered side by side, never blocked | `domain/tasks.ts` → `layoutDay` |
+| Three notification classes, read-state per user, clearable in bulk | `reducer.ts` → `notify`, `shell/NotificationsPopover.tsx` |
+| Approaching and past due times raise notifications, derived not stored | `domain/reminders.ts`, driven by `lib/useSystemNotifications.ts` |
+| System notifications and installability | `lib/notify.ts`, `public/sw.js`, `public/manifest.webmanifest` |
+| Measures derived from history; personal range instant | `domain/reports.ts` → `measure` |
+| Charts comparative across time, never ranking people | `screens/Reports.tsx` — the per-person table is each person's own record |
+| Offline tolerance: writes queue, the user is told, never blocked | `store/StoreContext.tsx`, the unsynced pill in `shell/TopBar.tsx` |
+| One source of truth per object | One store; every screen reads it and dispatches the same actions |
+| UTC storage, local rendering; a due date is a date-*time* | `lib/time.ts` — `toLocalInput`/`fromLocalInput` are the only crossing points |
+| Keyboard reach for list nav, completion, panel dismissal | `screens/Tasks.tsx` key handler, `ui/index.tsx` → `useEscape` |
+| Status never carried by colour alone | `domain/tasks.ts` → `STATUS_LABEL` pairs with every `STATUS_TONE` |
+
+## Fidelity to the design system
+
+The token files are copied byte-for-byte from the bundle and imported through its own
+`styles.css`. `app.css` contains no colour, size, radius, shadow or duration literal — every
+value is a `var(--…)`. The rules the bundle calls binding are implemented as written:
+
+- **Cards are borderless** — lighter fill, `--shadow-2`, the 1px inner top highlight, 10px radius.
+- **The folder tab** — a 3px accent or status bar clipped to a card or row's top corner, on
+  cards, list rows, calendar blocks and note cards.
+- **Borders divide, they do not contain** — hairline between rows, soft on inputs and panel
+  seams, strong only on a focused or selected element.
+- **`backdrop-filter: blur(20px)` on exactly three things** — the top bar, modal scrims, popovers.
+- **Hover lightens, press only changes colour, focus is always a visible ring.** No transform
+  on press anywhere. The two writing surfaces take an accent rule in the gutter instead of a
+  ring, because a ring around a 400px-tall field reads as an error.
+- **Motion** — fades and 150ms colour transitions, enter is fade + 4px rise over 200ms. The
+  one flourish is completion: the strike wipes left-to-right over 200ms, then the row settles
+  at 40%. No bounce, no spring, no scale-in, no skeleton shimmer.
+- **Data viz is single-hue** — 1.5px accent stroke over a 14% accent fill, mono axis labels,
+  one hairline baseline, accent arc on an `--ink-3` gauge track.
+- **Dark only.** Nothing branches on theme and there is no light-mode scaffolding.
+- **No emoji, no illustration, no photography.** Empty states are a Lucide glyph at 40%
+  opacity plus one line of type.
+
+The wordmark is live type — `Runway` in Manrope 800 at -0.02em. The mark is the six-light
+runway from the supplied brand sheet, on its 48-unit grid with the 30/60/100 opacity ramp
+intact; it is never recoloured per column, rotated or stretched (`components/ui/Mark.tsx`).
+
+## Notifications
+
+Three things raise a notification, matching §2.4: work assigned or handed to you, a due time
+approaching or passed, and a change to something you handed off. They land in the in-app list
+and — once you turn alerts on — in the operating system.
+
+- **Turning them on.** The control is at the foot of the notifications popover, and in Menu on
+  mobile. Permission is only ever requested from that click; asking on load is how a site gets
+  blocked permanently.
+- **Deadlines** are watched by `domain/reminders.ts` against the signed-in user's own tasks:
+  once when a due time is within the hour, once when it passes. Keys are
+  `taskId:dueAt:kind`, so a reminder never repeats and moving a due date re-arms it. Reminders
+  more than 24h stale are skipped, so returning to a neglected board is not a wall of alerts.
+- **Installable.** The manifest and service worker make Runway installable on desktop and
+  Android; the worker also serves the app shell from cache so it opens offline (§7), routes a
+  notification click to the task it is about, and focuses an open window instead of opening tabs.
+- **iOS** only grants notification permission to an installed app (Safari 16.4+). The UI detects
+  this and says to add it to the home screen rather than failing silently.
+
+**The limit, stated plainly: alerts only fire while Runway is running** — a tab may be in the
+background and they still arrive, but once the app is fully closed nothing does, because
+scheduling then belongs to a push server and this build has no backend. A web page cannot run
+background timers. `public/sw.js` already handles `push` with the same payload shape the client
+sends locally, so adding Web Push later is VAPID keys plus a subscription store, with no client
+changes. The same backend is what would let one person's assignment reach another person's
+device; today both users are identities on one browser.
+
+## Known gaps
+
+- **No backend, no auth.** State is per-browser. Two people cannot actually share a note.
+- **There is no time tracking.** It was removed at the client's request after review, which
+  is a deliberate deviation from the handoff spec (§2.3, §3, §5 all require it). What was
+  taken out and what replaced it is listed under "Removed after review" in
+  [DECISIONS.md](DECISIONS.md).
+- **Reports do not export** and tasks do not repeat — see [DECISIONS.md](DECISIONS.md) Q5–Q6.
+- **Calendar drag moves a block; it does not resize one.** Length is edited in the reschedule
+  dialog.
+- **Folders are flat.** No nesting, and a folder is a label rather than a container — deleting
+  one leaves its tasks and notes in place, folderless.
+- **A promoted note line is matched by its text.** Edit that line and the link drops, which
+  the reducer prunes rather than leaving dangling.
+- **Alerts stop when the app is closed**, and cannot cross devices — both need the backend
+  described under Notifications above.
+- **No automated tests.** The domain layer (`derivedStatus`, `reparentError`, `layoutDay`,
+  `measure`, `pendingReminders`) is pure and is the right place to start.

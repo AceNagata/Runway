@@ -1,0 +1,12 @@
+/* Borderless + soft shadow. On near-black, shadow alone reads weakly, so each level
+   pairs a downward shadow with a 1px top inner highlight to lift the edge. */
+:root{
+--shadow-0:none;
+--shadow-1:0 1px 2px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.03);
+--shadow-2:0 2px 8px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.04);
+--shadow-3:0 8px 24px -4px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.05);
+--shadow-4:0 20px 48px -8px rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.06);
+--shadow-accent:0 4px 16px -2px rgba(255,77,28,.38);
+--ring-focus:0 0 0 2px var(--surface-app),0 0 0 4px var(--focus-ring);
+--wash-accent:radial-gradient(120% 90% at 50% 0%,rgba(255,77,28,.16) 0%,transparent 70%); /* @kind other */
+}

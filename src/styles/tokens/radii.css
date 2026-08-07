@@ -1,0 +1,2 @@
+:root{--r-none:0; /* @kind radius */--r-xs:2px;--r-sm:4px;--r-md:6px;--r-lg:10px;--r-xl:14px;--r-pill:999px;
+--radius-control:var(--r-sm);--radius-card:var(--r-lg);--radius-panel:var(--r-xl);--radius-chip:var(--r-pill)}

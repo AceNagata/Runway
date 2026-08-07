@@ -1,0 +1,20 @@
+/* Runway is a dark-only system. Base ramp is a cool near-black; one ember accent carries all action. */
+:root{
+--ink-0:#08090A;--ink-1:#0D0F11;--ink-2:#141719;--ink-3:#1C2023;--ink-4:#262B2F;--ink-5:#343A3F;
+--chalk-0:#FFFFFF;--chalk-1:#E8EDEF;--chalk-2:#A8B2B7;--chalk-3:#6D777C;--chalk-4:#4A5257;
+--ember-300:#FFB59B;--ember-400:#FF7847;--ember-500:#FF4D1C;--ember-600:#D93A0E;--ember-700:#A32B08;--ember-900:#3D1105;
+--amber-400:#FFC53D;--amber-600:#B8861C;
+--rose-400:#FF3B5C;--rose-600:#B92038;
+--grass-400:#34D399;--grass-600:#1E7F5C;
+
+/* semantic — surface */
+--surface-app:var(--ink-0);--surface-panel:var(--ink-1);--surface-card:var(--ink-2);--surface-raised:var(--ink-3);--surface-input:var(--ink-2);--surface-hover:var(--ink-3);--surface-active:var(--ink-4);
+/* semantic — text */
+--text-strong:var(--chalk-0);--text-body:var(--chalk-1);--text-muted:var(--chalk-2);--text-faint:var(--chalk-3);--text-on-accent:#1F0A03;
+/* semantic — line */
+--line-hairline:rgba(255,255,255,.06);--line-soft:rgba(255,255,255,.10);--line-strong:rgba(255,255,255,.16);
+/* semantic — accent + status */
+--accent:var(--ember-500);--accent-hover:var(--ember-400);--accent-press:var(--ember-600);--accent-wash:var(--ember-900);--focus-ring:var(--ember-400);
+--status-overdue:var(--rose-400);--status-due:var(--amber-400);--status-done:var(--grass-400);--status-idle:var(--chalk-3);
+--priority-high:var(--rose-400);--priority-mid:var(--amber-400);--priority-low:var(--chalk-3);
+}
