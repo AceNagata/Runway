@@ -243,7 +243,7 @@ function MemberRow({
   );
 }
 
-function InviteDialog({ onClose }: { onClose: () => void }) {
+export function InviteDialog({ onClose }: { onClose: () => void }) {
   const { state, me, dispatch } = useStore();
   const toast = useToast();
   const [name, setName] = useState('');

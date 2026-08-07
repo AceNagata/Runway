@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, CalendarCheck, CheckCircle2, Coffee, Plus } from 'lucide-react';
+import { ArrowRight, CalendarCheck, CheckCircle2, Coffee, FileText, Plus, UserPlus } from 'lucide-react';
 import { Button, Card, EmptyState, Eyebrow, ICON, Mono } from '../components/ui';
 import { LoadBar, Sparkline } from '../components/ui/Charts';
 import { TaskRow } from '../components/TaskRow';
+import { InviteDialog } from './Team';
 import { useStore } from '../store/StoreContext';
 import { lastSevenDays } from '../domain/reports';
 import { derivedStatus, groupOf, isOnToday, sortTasks } from '../domain/tasks';
@@ -378,6 +379,14 @@ function Section({
 /** First run: one thing to do, not four empty regions. §3 */
 function FirstRun({ onAddTask, onDone }: { onAddTask: () => void; onDone: () => void }) {
   const { me } = useStore();
+  const navigate = useNavigate();
+  const [inviting, setInviting] = useState(false);
+
+  // Each step ends in the action that step describes. The first is the accent one — three
+  // ember buttons would point at nothing.
+  const stepCard = { display: 'flex', flexDirection: 'column' } as const;
+  const stepAction = { marginTop: 'auto', paddingTop: 'var(--sp-6)', alignSelf: 'flex-start' };
+
   return (
     <div className="screen rise">
       <div className="hero">
@@ -394,7 +403,7 @@ function FirstRun({ onAddTask, onDone }: { onAddTask: () => void; onDone: () => 
       </div>
 
       <div className="stat-grid">
-        <Card tab="accent">
+        <Card tab="accent" style={stepCard}>
           <Eyebrow>Step one</Eyebrow>
           <p className="h3" style={{ margin: 'var(--sp-5) 0' }}>
             Add a task
@@ -403,12 +412,15 @@ function FirstRun({ onAddTask, onDone }: { onAddTask: () => void; onDone: () => 
             Give it a due time and it lands on today. Leave the time off and it waits in the
             unscheduled bucket.
           </p>
-          <Button variant="primary" onClick={onAddTask} style={{ marginTop: 'var(--sp-6)' }}>
-            <Plus size={16} {...ICON} />
-            Add task
-          </Button>
+          <div style={stepAction}>
+            <Button variant="primary" onClick={onAddTask}>
+              <Plus size={16} {...ICON} />
+              Add task
+            </Button>
+          </div>
         </Card>
-        <Card tab="due">
+
+        <Card tab="due" style={stepCard}>
           <Eyebrow>Step two</Eyebrow>
           <p className="h3" style={{ margin: 'var(--sp-5) 0' }}>
             Take a note
@@ -417,8 +429,15 @@ function FirstRun({ onAddTask, onDone }: { onAddTask: () => void; onDone: () => 
             No title, no folder, no save button. Any line in it can become a task without
             leaving the page.
           </p>
+          <div style={stepAction}>
+            <Button variant="secondary" onClick={() => navigate('/notes/new')}>
+              <FileText size={16} {...ICON} />
+              Take a note
+            </Button>
+          </div>
         </Card>
-        <Card tab="done">
+
+        <Card tab="done" style={stepCard}>
           <Eyebrow>Step three</Eyebrow>
           <p className="h3" style={{ margin: 'var(--sp-5) 0' }}>
             Hand work off
@@ -427,6 +446,14 @@ function FirstRun({ onAddTask, onDone }: { onAddTask: () => void; onDone: () => 
             Pass a task to anyone who reports to you. The due date travels with it and you
             stay on the record.
           </p>
+          {/* Hand-off needs somebody below you, and a fresh account has nobody — so the
+              action here is the one that makes hand-off possible at all. */}
+          <div style={stepAction}>
+            <Button variant="secondary" onClick={() => setInviting(true)}>
+              <UserPlus size={16} {...ICON} />
+              Send invite
+            </Button>
+          </div>
         </Card>
       </div>
 
@@ -435,6 +462,8 @@ function FirstRun({ onAddTask, onDone }: { onAddTask: () => void; onDone: () => 
           Skip the tour
         </Button>
       </div>
+
+      {inviting && <InviteDialog onClose={() => setInviting(false)} />}
     </div>
   );
 }
