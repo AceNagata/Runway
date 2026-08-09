@@ -24,6 +24,15 @@ function normalise(parsed: Partial<RunwayState>): RunwayState {
 /** Home renders from cached local state immediately on load and reconciles with the
  *  server in the background — never a full-screen loading state for a returning user. §3 */
 export function loadState(): RunwayState {
+  // `?demo=1` is checked before the cache, so a demo link works for a returning visitor and
+  // not only on a first-ever load. It is the one thing allowed to overwrite existing state,
+  // which is why it is an explicit URL flag rather than anything the app does on its own.
+  if (new URLSearchParams(location.search).get('demo') === '1') {
+    const demo = buildSeed();
+    saveState(demo);
+    return demo;
+  }
+
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
@@ -31,12 +40,12 @@ export function loadState(): RunwayState {
       if (parsed?.tasks && parsed?.users && parsed?.session) return normalise(parsed);
     }
   } catch {
-    // A corrupt cache is not worth a loading screen; fall through to the seed.
+    // A corrupt cache is not worth a loading screen; fall through to a clean board.
   }
-  // Ships empty. The demo org and its tasks are opt-in — via `?demo=1` or the Menu tile — so
-  // a public build never shows invented work as though it were yours.
-  const fresh =
-    new URLSearchParams(location.search).get('demo') === '1' ? buildSeed() : buildFirstRun();
+
+  // Ships empty. The demo org and its tasks are opt-in, so a public build never shows
+  // invented work as though it were yours.
+  const fresh = buildFirstRun();
   saveState(fresh);
   return fresh;
 }

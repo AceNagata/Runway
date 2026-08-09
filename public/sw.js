@@ -9,8 +9,16 @@
  *      and a subscription store, with no change to the client.
  */
 
-const VERSION = 'runway-v1';
-const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon-192.png'];
+/* Stamped at build time by scripts/stamp-sw.mjs. Every deploy therefore gets a new cache
+ * name, which is what makes `activate` below throw the previous build's cache away. Without
+ * that, a returning visitor keeps whatever HTML this worker cached first — and the HTML is
+ * what names the hashed asset files, so the whole app stays pinned to an old build. */
+const VERSION = 'runway-__SW_VERSION__';
+
+/* Only things that are stable across builds are precached. The HTML shell is deliberately
+ * absent: it is cached as a side effect of a real navigation instead, so what sits in the
+ * cache is always something the network actually served. */
+const SHELL = ['/manifest.webmanifest', '/icons/icon-192.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
