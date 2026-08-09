@@ -472,9 +472,67 @@ export function reducer(state: RunwayState, action: Action): RunwayState {
             role: action.role.trim() || 'Team member',
             managerId: action.managerId,
             admin: false,
+            sectionId: action.sectionId,
           },
         },
         queue: queued(state, `Send invite — ${action.name}`),
+      };
+    }
+
+    case 'org/set-section': {
+      const member = state.users[action.memberId];
+      if (!member) return state;
+      return {
+        ...state,
+        users: { ...state.users, [member.id]: { ...member, sectionId: action.sectionId } },
+        queue: queued(
+          state,
+          action.sectionId
+            ? `Move ${member.name} to ${state.sections[action.sectionId]?.name ?? 'a section'}`
+            : `Take ${member.name} out of their section`,
+        ),
+      };
+    }
+
+    case 'section/create': {
+      const id = newId('s');
+      return {
+        ...state,
+        sections: { ...state.sections, [id]: { id, name: action.name.trim(), tone: action.tone } },
+        queue: queued(state, `Add section — ${action.name.trim()}`),
+      };
+    }
+
+    case 'section/update': {
+      const section = state.sections[action.id];
+      if (!section) return state;
+      const next = { ...section, ...action.patch };
+      if (action.patch.name !== undefined) next.name = action.patch.name.trim() || section.name;
+      return {
+        ...state,
+        sections: { ...state.sections, [action.id]: next },
+        queue: queued(state, `Rename section — ${next.name}`),
+      };
+    }
+
+    case 'section/delete': {
+      const section = state.sections[action.id];
+      if (!section) return state;
+      const sections = { ...state.sections };
+      delete sections[action.id];
+      // A section is a label. Deleting it never removes anybody from the organisation, and
+      // never touches the reporting tree, which is what actually governs access.
+      const users = Object.fromEntries(
+        Object.entries(state.users).map(([id, u]) => [
+          id,
+          u.sectionId === action.id ? { ...u, sectionId: null } : u,
+        ]),
+      );
+      return {
+        ...state,
+        sections,
+        users,
+        queue: queued(state, `Delete section — ${section.name}`),
       };
     }
 

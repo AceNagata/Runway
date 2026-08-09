@@ -11,10 +11,23 @@ export interface User {
   role: string;
   /** Exactly one manager; null only for the root of the org tree. §4 */
   managerId: ID | null;
-  /** Permits the admin surface (member + manager editing). */
+  /** Permits the admin surface (member, section and manager editing). */
   admin: boolean;
+  /** Which part of the organisation they sit in. A label for reading the org, *not* a
+   *  permission boundary — visibility and hand-off follow the manager tree and nothing
+   *  else (§4). Null means unassigned. */
+  sectionId: ID | null;
   /** User-supplied only. No stock photography anywhere in this product. */
   avatarUrl?: string;
+}
+
+/** A named part of the organisation — department, squad, chapter, whatever the team calls
+ *  it. Flat: sections do not nest, because the reporting tree already carries hierarchy and
+ *  two competing hierarchies is how an org chart becomes unreadable. */
+export interface Section {
+  id: ID;
+  name: string;
+  tone: StatusTone;
 }
 
 export interface Folder {
@@ -121,6 +134,7 @@ export interface Session {
 
 export interface RunwayState {
   users: Record<ID, User>;
+  sections: Record<ID, Section>;
   folders: Record<ID, Folder>;
   tasks: Record<ID, Task>;
   notes: Record<ID, Note>;

@@ -1,8 +1,8 @@
 import { buildFirstRun, buildSeed } from '../data/seed';
 import type { RunwayState } from './types';
 
-// v3 added the fired-reminder record. v2 dropped timeEntries when time tracking was removed.
-const KEY = 'runway.state.v3';
+// v4 added org sections. v3 added the fired-reminder record. v2 dropped timeEntries.
+const KEY = 'runway.state.v4';
 
 /** A cache written by an older build is missing whatever collections that build did not have.
  *  Reading it must never crash the app, so every collection is backfilled here rather than
@@ -11,6 +11,7 @@ function normalise(parsed: Partial<RunwayState>): RunwayState {
   const seed = buildSeed();
   return {
     users: parsed.users ?? seed.users,
+    sections: parsed.sections ?? {},
     folders: parsed.folders ?? seed.folders,
     tasks: parsed.tasks ?? {},
     notes: parsed.notes ?? {},

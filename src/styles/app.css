@@ -1699,6 +1699,10 @@ a:hover {
   gap: var(--sp-3);
 }
 
+.admin-mobile-note {
+  display: none;
+}
+
 .member {
   display: flex;
   align-items: center;
@@ -2122,6 +2126,9 @@ a:hover {
   }
   .member-right .btn {
     display: none;
+  }
+  .admin-mobile-note {
+    display: block;
   }
   .member-right {
     gap: var(--sp-5);

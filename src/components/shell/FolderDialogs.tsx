@@ -13,7 +13,7 @@ const TONES: Array<{ tone: StatusTone; label: string }> = [
   { tone: 'idle', label: 'Chalk' },
 ];
 
-function TonePicker({
+export function TonePicker({
   value,
   onChange,
 }: {

@@ -33,7 +33,19 @@ export type Action =
   | { type: 'notif/remind'; taskId: ID; kind: ReminderKind; text: string; key: string }
   /** Marks notifications as handed to the operating system. */
   | { type: 'notif/surfaced'; ids: ID[] }
-  | { type: 'org/invite'; name: string; handle: string; role: string; managerId: ID }
+  | {
+      type: 'org/invite';
+      name: string;
+      handle: string;
+      role: string;
+      managerId: ID;
+      sectionId: ID | null;
+    }
+  | { type: 'org/set-section'; memberId: ID; sectionId: ID | null }
+  | { type: 'section/create'; name: string; tone: StatusTone }
+  | { type: 'section/update'; id: ID; patch: { name?: string; tone?: StatusTone } }
+  /** Members stay put and simply lose their section — a section is a label, not a container. */
+  | { type: 'section/delete'; id: ID }
   | { type: 'org/reparent'; memberId: ID; managerId: ID }
   | { type: 'org/set-role'; memberId: ID; role: string; admin: boolean }
   | { type: 'org/remove'; memberId: ID }

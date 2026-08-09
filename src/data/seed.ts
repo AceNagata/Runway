@@ -1,18 +1,25 @@
 import { addDays, atHour, clock, startOfDay } from '../lib/time';
-import type { Folder, Note, RunwayState, Task, TaskEvent, User } from '../store/types';
+import type { Folder, Note, RunwayState, Section, Task, TaskEvent, User } from '../store/types';
 
 /** The seed is dated relative to whenever the app first runs, so home always answers
  *  "what is today" with something real. */
 
+const sections: Section[] = [
+  { id: 'sec_product', name: 'Product', tone: 'accent' },
+  { id: 'sec_design', name: 'Design', tone: 'done' },
+  { id: 'sec_ops', name: 'Operations', tone: 'due' },
+  { id: 'sec_eng', name: 'Engineering', tone: 'idle' },
+];
+
 const users: User[] = [
-  { id: 'u_maya', name: 'Maya Okonkwo', handle: '@maya', role: 'Head of product', managerId: 'u_dara', admin: true },
-  { id: 'u_dara', name: 'Dara Whitfield', handle: '@dara', role: 'Chief executive', managerId: null, admin: true },
-  { id: 'u_theo', name: 'Theo Lund', handle: '@theo', role: 'Product designer', managerId: 'u_maya', admin: false },
-  { id: 'u_ines', name: 'Ines Ruiz', handle: '@ines', role: 'Design school lead', managerId: 'u_maya', admin: false },
-  { id: 'u_priya', name: 'Priya Nair', handle: '@priya', role: 'Operations', managerId: 'u_maya', admin: false },
-  { id: 'u_sam', name: 'Sam Adeyemi', handle: '@sam', role: 'Design intern', managerId: 'u_theo', admin: false },
-  { id: 'u_lena', name: 'Lena Bauer', handle: '@lena', role: 'Recruiter', managerId: 'u_priya', admin: false },
-  { id: 'u_omar', name: 'Omar Haddad', handle: '@omar', role: 'Engineering lead', managerId: 'u_dara', admin: false },
+  { id: 'u_maya', name: 'Maya Okonkwo', handle: '@maya', role: 'Head of product', managerId: 'u_dara', admin: true, sectionId: 'sec_product' },
+  { id: 'u_dara', name: 'Dara Whitfield', handle: '@dara', role: 'Chief executive', managerId: null, admin: true, sectionId: null },
+  { id: 'u_theo', name: 'Theo Lund', handle: '@theo', role: 'Product designer', managerId: 'u_maya', admin: false, sectionId: 'sec_design' },
+  { id: 'u_ines', name: 'Ines Ruiz', handle: '@ines', role: 'Design school lead', managerId: 'u_maya', admin: false, sectionId: 'sec_design' },
+  { id: 'u_priya', name: 'Priya Nair', handle: '@priya', role: 'Operations', managerId: 'u_maya', admin: false, sectionId: 'sec_ops' },
+  { id: 'u_sam', name: 'Sam Adeyemi', handle: '@sam', role: 'Design intern', managerId: 'u_theo', admin: false, sectionId: 'sec_design' },
+  { id: 'u_lena', name: 'Lena Bauer', handle: '@lena', role: 'Recruiter', managerId: 'u_priya', admin: false, sectionId: 'sec_ops' },
+  { id: 'u_omar', name: 'Omar Haddad', handle: '@omar', role: 'Engineering lead', managerId: 'u_dara', admin: false, sectionId: 'sec_eng' },
 ];
 
 const folders: Folder[] = [
@@ -314,6 +321,7 @@ export function buildSeed(now = new Date()): RunwayState {
 
   return {
     users: Object.fromEntries(users.map((u) => [u.id, u])),
+    sections: Object.fromEntries(sections.map((x) => [x.id, x])),
     folders: Object.fromEntries(folders.map((f) => [f.id, f])),
     tasks,
     notes,
@@ -339,9 +347,11 @@ export function buildFirstRun(): RunwayState {
     role: 'Owner',
     managerId: null,
     admin: true,
+    sectionId: null,
   };
   return {
     users: { [you.id]: you },
+    sections: {},
     folders: {},
     tasks: {},
     notes: {},

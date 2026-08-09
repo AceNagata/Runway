@@ -57,6 +57,7 @@ src/
     shell/           Sidebar, top bar, detail panel, action bar, dialogs, search
     TaskRow.tsx      The shared list row, including the completion flourish
   screens/           Home, Tasks, Folder, Schedule, Notes, NoteEditor, Team, Reports, Menu
+                     Team is the admin surface: members, sections, reporting tree
   data/seed.ts       buildFirstRun() is the default empty state; buildSeed() is the opt-in demo
   lib/notify.ts      Permission, system notifications, service-worker registration
 public/sw.js         Install, offline shell, notification clicks, a ready `push` handler
@@ -77,6 +78,7 @@ public/manifest.webmanifest
 | Due dates travel with a hand-off | `reducer.ts` → `task/handoff` never touches `dueAt` |
 | Removing a member re-parents reports and reassigns tasks upward | `reducer.ts` → `org/remove` |
 | A cycle is impossible; the edit is rejected, not partially applied | `domain/org.ts` → `reparentError`, re-checked in `org/reparent` |
+| Admin lives in the web shell, not a separate app — members, sections, reporting lines | `screens/Team.tsx` at `/team`, gated on `user.admin` |
 | Notes and tasks searched as one result set | `components/shell/SearchPalette.tsx` |
 | A folder is a destination, not a filter — its tasks and notes on one screen | `screens/Folder.tsx` at `/folders/:folderId` |
 | A note line promoted to a task, with a back-reference both ways | `reducer.ts` → `note/promote`, `screens/NoteEditor.tsx` |
@@ -120,6 +122,31 @@ value is a `var(--…)`. The rules the bundle calls binding are implemented as w
 The wordmark is live type — `Runway` in Manrope 800 at -0.02em. The mark is the six-light
 runway from the supplied brand sheet, on its 48-unit grid with the 30/60/100 opacity ramp
 intact; it is never recoloured per column, rotated or stretched (`components/ui/Mark.tsx`).
+
+## Admin
+
+There is no separate admin app — §6.3 puts admin inside the web shell, so it is the **Team**
+screen at `/team`, reached from the sidebar and gated on a member's `admin` flag. It is the
+only place membership, sections and reporting lines can be edited.
+
+It shows the organisation two ways:
+
+- **Reporting tree** — who reports to whom, drawn as an indented tree. This one *is* the
+  permission model (§4): you see everyone below you and nobody sideways or above, and a task
+  can only be handed down it. Editing a line is transactional — a cycle is rejected outright
+  rather than half-applied.
+- **Sections** — Product, Design, Operations and so on, with members grouped under each and an
+  explicit "No section" group. Sections are **labels only**: they never grant or remove access,
+  which is why they are flat and freely editable. Deleting one leaves everybody in place,
+  sectionless.
+
+From here an admin can add a member (choosing both their manager and their section), edit a
+member's role, section and admin flag, move them to a different manager, and remove them —
+which re-parents their reports and reassigns their open tasks upward, never orphaning either.
+
+"Add member" creates the account outright rather than emailing anything, because there is no
+backend to send from; calling it "Send invite" would have been a button that lies. On mobile
+the tree is read-only (§6.2), so the editing controls are hidden and a line of copy says why.
 
 ## Notifications
 

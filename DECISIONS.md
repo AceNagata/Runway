@@ -69,6 +69,26 @@ The reminder window (one hour before) and the staleness cut-off (24 hours) are g
 are two constants at the top of `domain/reminders.ts` and should be a user setting if anyone
 disagrees with them.
 
+## Sections, added after review
+
+The spec models the organisation as a pure manager tree (§4) and never mentions departments,
+so **sections are an addition**, asked for after review. Two decisions worth recording:
+
+- **A section is a label, not a permission boundary.** Visibility and hand-off still follow the
+  reporting tree and nothing else, so moving somebody between sections changes no access. The
+  alternative — sections as access groups — would have created a second hierarchy competing
+  with the tree the spec calls "the permission model, not just a diagram".
+- **Sections are flat.** The reporting tree already carries hierarchy; nesting sections as well
+  gives two hierarchies to reconcile, which is how an org chart becomes unreadable. If nesting
+  is genuinely wanted, `Section` needs a `parentId` and the same cycle check the org tree has.
+
+Deleting a section keeps every member and every reporting line, exactly as deleting a folder
+keeps its tasks and notes — same rule, so neither surprises anyone.
+
+`org/invite` was also renamed in the UI from "Send invite" to **"Add member"**: it creates the
+account outright, and with no backend to send mail from, a button promising an invite would be
+claiming something the product does not do.
+
 ## Smaller judgement calls
 
 - **Visibility beyond the subtree.** §4 says a user sees their subtree, and also says the
