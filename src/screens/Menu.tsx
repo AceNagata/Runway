@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Archive, BarChart3, Bell, Database, RotateCcw, Users, UserRound } from 'lucide-react';
+import { Archive, BarChart3, Bell, Database, Lock, RotateCcw, Users, UserRound } from 'lucide-react';
 import { Avatar, Button, Card, ConfirmDialog, Eyebrow, ICON, Mono } from '../components/ui';
 import { SwitchUserDialog } from '../components/shell/SwitchUserDialog';
 import { AlertSetting } from '../components/shell/AlertSetting';
 import { useStore } from '../store/StoreContext';
 import { managerChain, subtree } from '../domain/org';
+import { lockNow } from '../lib/lock';
 
 /** Mobile keeps home, tasks, schedule and notes on the tab bar; everything else lives in
  *  this grid. Reports and the team tree are read-only on a phone. §6.2 */
@@ -65,6 +66,17 @@ export function Menu() {
           <button className="menu-tile" onClick={() => setSwitching(true)}>
             <UserRound size={24} {...ICON} />
             Switch member
+          </button>
+          <button
+            className="menu-tile"
+            onClick={() => {
+              lockNow();
+              location.replace('/');
+            }}
+          >
+            <Lock size={24} {...ICON} />
+            Lock Runway
+            <Mono className="faint">Needs your passphrase</Mono>
           </button>
           <button className="menu-tile" onClick={() => setLoadingDemo(true)}>
             <Database size={24} {...ICON} />

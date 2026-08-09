@@ -26,9 +26,12 @@ import { Team } from './screens/Team';
 import { Reports } from './screens/Reports';
 import { Menu } from './screens/Menu';
 import { Folder } from './screens/Folder';
+import { Setup } from './screens/Setup';
+import { Lock } from './screens/Lock';
 import { StoreProvider, useNow, useStore } from './store/StoreContext';
 import { useIsMobile } from './lib/useMediaQuery';
 import { useSystemNotifications } from './lib/useSystemNotifications';
+import { hasAccount, isUnlocked } from './lib/lock';
 
 const TITLES: Array<[RegExp, string]> = [
   [/^\/$/, 'Home'],
@@ -43,7 +46,24 @@ const TITLES: Array<[RegExp, string]> = [
   [/^\/menu/, 'Menu'],
 ];
 
+/** The gate sits outside StoreProvider, so nothing reads or writes the board until the owner
+ *  is through it. `?demo=1` skips the gate entirely — the demo holds nothing worth locking and
+ *  a public demo link should not ask a stranger to invent a passphrase. */
 export default function App() {
+  const isDemo = new URLSearchParams(location.search).get('demo') === '1';
+  const [state, setState] = useState<'setup' | 'locked' | 'open'>(() => {
+    if (isDemo) return 'open';
+    if (!hasAccount()) return 'setup';
+    return isUnlocked() ? 'open' : 'locked';
+  });
+
+  if (state === 'setup') {
+    // Reload rather than transitioning: the store seeds its owner from the saved name, and
+    // reading it once at load is simpler than teaching the store to change identity midway.
+    return <Setup onDone={() => location.replace('/')} />;
+  }
+  if (state === 'locked') return <Lock onUnlocked={() => setState('open')} />;
+
   return (
     <StoreProvider>
       <ToastHost>

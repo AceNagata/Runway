@@ -339,11 +339,11 @@ export function buildSeed(now = new Date()): RunwayState {
  *  the reporting tree *is* the permission model (§4) and there is no sign-up without a
  *  backend (DECISIONS.md Q8); it is a placeholder, not a person. Invite real people from
  *  Team, or load the demo from Menu to see hand-off and reports with data in them. */
-export function buildFirstRun(): RunwayState {
+export function buildFirstRun(ownerName?: string): RunwayState {
   const you: User = {
     id: 'u_you',
-    name: PLACEHOLDER_NAME,
-    handle: '@you',
+    name: ownerName?.trim() || PLACEHOLDER_NAME,
+    handle: ownerName ? `@${ownerName.trim().split(/\s+/)[0].toLowerCase()}` : '@you',
     role: 'Owner',
     managerId: null,
     admin: true,

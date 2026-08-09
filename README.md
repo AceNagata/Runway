@@ -123,6 +123,28 @@ The wordmark is live type — `Runway` in Manrope 800 at -0.02em. The mark is th
 runway from the supplied brand sheet, on its 48-unit grid with the 30/60/100 opacity ramp
 intact; it is never recoloured per column, rotated or stretched (`components/ui/Mark.tsx`).
 
+## Setting up, and the lock
+
+On a real first run Runway asks the organiser for **their name and a passphrase**. The name
+becomes the owner member at the root of the reporting tree, so greetings, avatars and every
+chain of custody read properly, and everyone else is added underneath them. The board starts
+empty and owned by them.
+
+**The passphrase locks this browser. It is not an account, and the UI says so on both screens.**
+The passphrase itself is never stored — what is stored is a PBKDF2-SHA-256 derivation (200,000
+iterations, 16 random bytes of salt), so reading the stored record does not reveal it. But the
+tasks and notes are plain text in `localStorage`: anyone with developer tools on that machine
+can read them, or clear the record to get past the lock. It keeps a passer-by out of an
+unattended browser and nothing more. There is also nobody to reset it, so "I've forgotten it"
+can only offer to erase and start over — and says exactly that.
+
+Real accounts — a password that survives a cleared browser, works on a second device, and is
+verified by something other than the code asking the question — need Firebase Auth plus
+Firestore. `src/lib/lock.ts` is deliberately the only module that would change.
+
+`?demo=1` skips the gate: the demo holds nothing worth locking, and a public demo link should
+not ask a stranger to invent a passphrase. **Menu → Lock Runway** locks on demand.
+
 ## Admin
 
 There is no separate admin app — §6.3 puts admin inside the web shell, so it is the **Team**

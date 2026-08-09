@@ -1,4 +1,5 @@
 import { buildFirstRun, buildSeed } from '../data/seed';
+import { readAccount } from '../lib/lock';
 import type { RunwayState } from './types';
 
 // v4 added org sections. v3 added the fired-reminder record. v2 dropped timeEntries.
@@ -45,8 +46,8 @@ export function loadState(): RunwayState {
   }
 
   // Ships empty. The demo org and its tasks are opt-in, so a public build never shows
-  // invented work as though it were yours.
-  const fresh = buildFirstRun();
+  // invented work as though it were yours. The owner takes the name given at setup.
+  const fresh = buildFirstRun(readAccount()?.name);
   saveState(fresh);
   return fresh;
 }
@@ -62,6 +63,13 @@ export function saveState(state: RunwayState): void {
       // Storage full or blocked — the in-memory store is still the source of truth.
     }
   }, 120);
+}
+
+/** Setup writes the board fresh under the new owner. Without this, anything already cached —
+ *  demo data somebody was trying out, most likely — would survive setup and the organiser
+ *  would land in somebody else's organisation. */
+export function startBoardForOwner(name: string): void {
+  localStorage.setItem(KEY, JSON.stringify(buildFirstRun(name)));
 }
 
 export function clearState(): void {

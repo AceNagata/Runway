@@ -557,6 +557,42 @@ a:hover {
   gap: var(--sp-5);
 }
 
+/* ---------------------------------------------------------------- gate screens */
+
+/* Setup and lock. Centred on the flat stage with the one permitted accent wash behind. */
+.gate {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-9) var(--sp-7);
+  position: relative;
+  overflow-y: auto;
+}
+
+.gate::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--wash-accent);
+  pointer-events: none;
+}
+
+.gate-inner {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-8);
+}
+
+.gate-caveat {
+  display: flex;
+  gap: var(--sp-4);
+  align-items: flex-start;
+}
+
 /* ---------------------------------------------------------------- cards */
 
 /* Borderless. Definition is a lighter fill, shadow 2, the inner top highlight, 10px. */

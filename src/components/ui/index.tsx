@@ -1,5 +1,6 @@
 import {
   createContext,
+  forwardRef,
   useContext,
   useEffect,
   useId,
@@ -270,12 +271,13 @@ export function Field({
   );
 }
 
-export const Input = ({
-  className = '',
-  ...rest
-}: InputHTMLAttributes<HTMLInputElement>) => (
-  <input className={`input ${className}`} {...rest} />
+/** Forwards its ref so gate screens can take focus on mount. */
+export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
+  ({ className = '', ...rest }, ref) => (
+    <input ref={ref} className={`input ${className}`} {...rest} />
+  ),
 );
+Input.displayName = 'Input';
 
 export const Select = ({
   className = '',

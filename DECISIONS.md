@@ -89,6 +89,33 @@ keeps its tasks and notes — same rule, so neither surprises anyone.
 account outright, and with no backend to send mail from, a button promising an invite would be
 claiming something the product does not do.
 
+## The owner's passphrase
+
+Asked for after review: the organiser who buys Runway should name themselves and set a
+password. The name half is straightforward and real. The password half is not, and the
+implementation is deliberately honest about it.
+
+**With no backend, a client-side password cannot protect data.** The tasks and notes live in
+`localStorage` in plain text; any password check runs in code the visitor controls, and the
+record behind it can simply be deleted. So what shipped is a **device lock**, labelled as one
+on both the setup and lock screens, rather than a login box implying account security that
+does not exist.
+
+What is still done properly, because there was no reason to do it badly:
+
+- The passphrase is never stored. Only a PBKDF2-SHA-256 derivation is — 200,000 iterations,
+  16 random bytes of salt — so the stored record does not reveal it and the same passphrase
+  produces a different record on each device.
+- Verification compares in constant time.
+- The credential lives in its own `localStorage` key, not in `RunwayState`, so loading or
+  clearing the demo cannot lock the owner out.
+- "I've forgotten it" offers only to erase and start over, and says so, because there is
+  genuinely nobody to reset it. Pretending otherwise would lose someone their data.
+
+Real accounts need Firebase Auth (passwords held by Google, never by us) plus Firestore for
+shared data. `src/lib/lock.ts` is the seam: replace derive/verify with
+`signInWithEmailAndPassword` and the screens above it do not change.
+
 ## Smaller judgement calls
 
 - **Visibility beyond the subtree.** §4 says a user sees their subtree, and also says the

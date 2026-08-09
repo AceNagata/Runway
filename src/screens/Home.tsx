@@ -450,7 +450,7 @@ function FirstRun({ onAddTask, onDone }: { onAddTask: () => void; onDone: () => 
           <div style={stepAction}>
             <Button variant="primary" onClick={() => setInviting(true)}>
               <UserPlus size={16} {...ICON} />
-              Send invite
+              Add member
             </Button>
           </div>
         </Card>
