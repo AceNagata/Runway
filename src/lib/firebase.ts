@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { browserLocalPersistence, getAuth, setPersistence } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
 /** Firebase web config.
  *
@@ -19,6 +20,7 @@ const config = {
 
 export const firebaseApp = initializeApp(config);
 export const auth = getAuth(firebaseApp);
+export const db = getFirestore(firebaseApp);
 
 /** Stay signed in across restarts. The gate is the account, not a per-session lock. */
 void setPersistence(auth, browserLocalPersistence);

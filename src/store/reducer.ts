@@ -612,6 +612,15 @@ export function reducer(state: RunwayState, action: Action): RunwayState {
     case 'queue/flush':
       return state.queue.length === 0 ? state : { ...state, queue: [] };
 
+    case 'sync/replace': {
+      // Firestore is the source of truth for these; everything else is this device's.
+      return {
+        ...state,
+        ...action.collections,
+        session: { ...state.session, currentUserId: action.currentUserId },
+      };
+    }
+
     case 'demo/load':
       return buildSeed();
 

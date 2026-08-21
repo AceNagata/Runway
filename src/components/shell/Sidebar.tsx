@@ -19,7 +19,7 @@ const NAV = [
 ] as const;
 
 export function Sidebar() {
-  const { state, me } = useStore();
+  const { state, me, isOrg } = useStore();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [switching, setSwitching] = useState(false);
@@ -111,8 +111,10 @@ export function Sidebar() {
         )}
         <button
           className="sidebar-user"
-          onClick={() => setSwitching(true)}
-          aria-label={`Signed in as ${me.name}. Switch member.`}
+          onClick={() => !isOrg && setSwitching(true)}
+          aria-label={
+            isOrg ? `Signed in as ${me.name}` : `Signed in as ${me.name}. Switch member.`
+          }
         >
           <Avatar user={me} size="sm" decorative />
           <span className="sidebar-user-text">

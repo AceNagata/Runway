@@ -1,0 +1,133 @@
+rules_version = '2';
+
+/* Runway — Firestore security rules.
+ *
+ * An organisation is a document at /orgs/{slug} with everything under it. Membership is a
+ * document keyed by the signed-in user's Firebase uid, which is what every rule below turns
+ * on: if there is no member document for you under this org, you get nothing.
+ *
+ * What these rules DO enforce:
+ *   - You must be signed in and a member of that org to read any of its work.
+ *   - Private notes stay private. Only the owner reads an unshared note.
+ *   - Notifications are readable only by the person they are addressed to.
+ *   - Only an admin edits membership, sections, or the org itself.
+ *   - Joining requires the org's join code, and you can never make yourself an admin.
+ *
+ * What they DO NOT enforce, and this is deliberate for v1:
+ *   §4's "a user can see the tasks of anyone below them, and cannot see sideways or upward"
+ *   is a graph traversal, and rules cannot walk a tree. Tasks are therefore readable by any
+ *   member of the org, and the subtree rule is applied in the client. A determined member
+ *   could read a task outside their subtree by calling the API directly.
+ *
+ *   Hardening that means denormalising the visible set onto each task — a `visibleTo` array
+ *   holding the owner's manager chain plus the originator — and matching on it here:
+ *       allow read: if request.auth.uid in resource.data.visibleTo;
+ *   It is cheap to write and expensive to retrofit, but it also has to be recomputed for
+ *   every affected task whenever the reporting tree changes, so it is called out in
+ *   DECISIONS.md rather than half-done.
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isMember(orgId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid));
+    }
+
+    function isAdmin(orgId) {
+      return isMember(orgId)
+        && get(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid)).data.admin == true;
+    }
+
+    function isOwner(orgId) {
+      return signedIn()
+        && get(/databases/$(database)/documents/orgs/$(orgId)).data.ownerUid == request.auth.uid;
+    }
+
+    function joinCode(orgId) {
+      // get() inside a rule is not itself subject to read rules, which is how the code can be
+      // checked without ever being readable by someone outside the org.
+      return get(/databases/$(database)/documents/orgs/$(orgId)/private/config).data.joinCode;
+    }
+
+    match /orgs/{orgId} {
+      // Name and slug only — enough to render "Join Arena Erbil" before you are a member.
+      // Never listable, so the set of customers cannot be enumerated.
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.slug == orgId;
+      allow update: if isAdmin(orgId);
+      allow delete: if false;
+
+      /* The join code. Readable by admins; every other check reaches it through the rules'
+         own get(), above.
+
+         The owner is allowed explicitly as well as via isAdmin, because when an organisation
+         is first created the code and the owner's member document are written together — and
+         rules evaluate against the state *before* the batch, where no member document exists
+         yet. Without this the very first write of a new org is denied. */
+      match /private/{document} {
+        allow read, write: if isAdmin(orgId) || isOwner(orgId);
+      }
+
+      match /members/{memberId} {
+        allow read: if isMember(orgId);
+
+        allow create: if signedIn()
+          && memberId == request.auth.uid
+          && (
+            // The owner bootstrapping their own organisation.
+            isOwner(orgId)
+            // Or somebody joining with the code — never as an admin.
+            || (request.resource.data.joinedWith == joinCode(orgId)
+                && request.resource.data.admin == false)
+          );
+
+        // Admins edit anyone. You may edit yourself, but cannot promote yourself.
+        allow update: if isAdmin(orgId)
+          || (isMember(orgId)
+              && memberId == request.auth.uid
+              && request.resource.data.admin == resource.data.admin);
+
+        allow delete: if isAdmin(orgId);
+      }
+
+      match /sections/{id} {
+        allow read: if isMember(orgId);
+        allow write: if isAdmin(orgId);
+      }
+
+      match /folders/{id} {
+        allow read, write: if isMember(orgId);
+      }
+
+      /* Org-wide read: see the note above on why the subtree rule lives in the client. */
+      match /tasks/{id} {
+        allow read, write: if isMember(orgId);
+      }
+
+      /* "Free-form documents owned by a user, optionally shared with the team." §2.1
+         An unshared note is readable by its owner and nobody else. */
+      match /notes/{id} {
+        allow read: if isMember(orgId)
+          && (resource.data.shared == true || resource.data.ownerId == request.auth.uid);
+        allow create: if isMember(orgId) && request.resource.data.ownerId == request.auth.uid;
+        allow update, delete: if isMember(orgId) && resource.data.ownerId == request.auth.uid;
+      }
+
+      /* Read-state is per user, so a notification is only ever readable by its recipient.
+         Anyone in the org may raise one, because hand-off and completion both notify. */
+      match /notifications/{id} {
+        allow read: if isMember(orgId) && resource.data.forUserId == request.auth.uid;
+        allow create: if isMember(orgId);
+        allow update, delete: if isMember(orgId) && resource.data.forUserId == request.auth.uid;
+      }
+    }
+  }
+}

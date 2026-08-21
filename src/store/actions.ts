@@ -1,4 +1,4 @@
-import type { ID, ReminderKind, StatusTone, Task } from './types';
+import type { ID, ReminderKind, RunwayState, StatusTone, Task } from './types';
 import type { Subject } from '../domain/reports';
 
 export type TaskDraft = Partial<
@@ -52,9 +52,19 @@ export type Action =
   | { type: 'session/switch-user'; userId: ID }
   | { type: 'session/onboarded' }
   | { type: 'queue/flush' }
-  /** Loads the demo org, tasks and notes. */
+  /** Applied when Firestore reports the org's collections. Replaces the synced half of the
+   *  board wholesale; session, queue and reminders are local and survive. */
+  | {
+      type: 'sync/replace';
+      collections: Pick<
+        RunwayState,
+        'users' | 'sections' | 'folders' | 'tasks' | 'notes' | 'notifications'
+      >;
+      currentUserId: ID;
+    }
+  /** Loads the demo org, tasks and notes. Local only. */
   | { type: 'demo/load' }
-  /** Back to one account and an empty board. */
+  /** Back to one account and an empty board. Local only. */
   | { type: 'demo/clear' };
 
 /** Reports are a read model, not state — this only exists so the screen can name its

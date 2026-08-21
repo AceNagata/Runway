@@ -60,8 +60,11 @@ src/
                      Team is the admin surface: members, sections, reporting tree
   data/seed.ts       buildFirstRun() is the default empty state; buildSeed() is the opt-in demo
   lib/notify.ts      Permission, system notifications, service-worker registration
-  lib/firebase.ts    Firebase app + auth init (config is public by design)
+  lib/firebase.ts    Firebase app, auth and Firestore init (config is public by design)
   lib/auth.ts        Sign up, sign in, reset, and readable messages for Firebase codes
+  lib/org.ts         Slugs, org creation, joining by code
+  store/sync.ts      Live listeners in, per-document diffs out
+firestore.rules      Who can read and write what
 public/sw.js         Install, offline shell, notification clicks, a ready `push` handler
 public/manifest.webmanifest
 ```
@@ -125,28 +128,60 @@ The wordmark is live type — `Runway` in Manrope 800 at -0.02em. The mark is th
 runway from the supplied brand sheet, on its 48-unit grid with the 30/60/100 opacity ramp
 intact; it is never recoloured per column, rotated or stretched (`components/ui/Mark.tsx`).
 
-## Accounts
+## Organisations
 
-Runway uses **Firebase Auth**. The organiser who buys it creates an account with their name,
-email and password; that name becomes the owner member at the root of the reporting tree, so
-greetings, avatars and every chain of custody read properly, and everyone else is added
-underneath them.
+An organisation lives at its own address: **`/ArenaErbil`**. Everything under it belongs to
+that org — `/ArenaErbil/tasks`, `/ArenaErbil/team`, `/ArenaErbil/reports`.
 
-The password is real: checked server side by Firebase, never stored or seen by this code, and
-resettable over email from **Forgotten your password?**. It works on any device and survives a
-cleared browser.
+The address is the first path segment, and it becomes the router's `basename`, so every route
+and every `navigate()` inside the app is unchanged by this. Matching is case-insensitive (the
+Firestore document id is lower case) while the URL keeps whatever capitals were typed —
+`/arenaerbil` and `/ArenaErbil` are the same org, and the second is what people see.
 
-**What it does not yet do is move the work.** Tasks and notes still live in the browser
-(DECISIONS.md Q8), keyed per account so two people sharing a computer never open each other's
-board. Sign in on a second machine and you get a real session and an empty board. The sign-in
-screen says exactly this rather than implying sync.
+**Setting one up.** Sign up, then name the organisation and choose its address; "Arena Erbil"
+suggests `ArenaErbil`. You become the owner at the root of the reporting tree, and Runway
+shows you a **join code** once.
 
-`?demo=1` skips the gate: the demo holds nothing worth protecting and a public demo link
-should not ask a stranger to make an account. **Menu → Sign out** ends the session.
+**Joining.** Anyone who opens `/ArenaErbil`, creates an account, and enters the join code lands
+in the org under the owner, ready to be moved in Team. A stranger who finds the URL without
+the code gets nothing — the code is checked by security rules, not by the page, so guessing at
+it is pointless. The code lives in **Team → Add member** alongside the address.
 
-The Firebase web config in `src/lib/firebase.ts` is committed on purpose — those values are
-identifiers, not secrets, and ship in the bundle of every Firebase web app. Accounts are
-protected by Auth verifying the password, not by hiding that file.
+## Where the data lives
+
+**Firestore, in Frankfurt (`europe-west3`)** — chosen for latency from Erbil against the
+broadest feature support. The region is permanent.
+
+```
+orgs/{slug}                     name, address, ownerUid
+orgs/{slug}/private/config      the join code — never readable outside the org
+orgs/{slug}/members/{uid}       one per person, keyed by their Firebase uid
+orgs/{slug}/{sections,folders,tasks,notes,notifications}
+```
+
+The reducer did not change. `store/sync.ts` sits underneath it: live listeners bring other
+people's edits in, and every dispatch writes back only the documents that actually differ.
+Reads still land instantly because the reducer applies each change locally first and Firestore
+confirms a moment later, so §3's "never a full-screen loading state" still holds. Conflicts are
+last-write-wins **per document**, so ordinary concurrent work does not collide.
+
+Accounts are Firebase Auth: the password is verified server side, never stored by this code,
+works on any device, and is resettable by email. `?demo=1` bypasses all of it — the demo is
+local to the browser, needs no account, and writes to nobody's data.
+
+## What the security rules do and do not enforce
+
+`firestore.rules` enforces: you must be a member of an org to read any of its work; private
+notes are readable only by their owner; notifications only by their recipient; only admins
+edit membership, sections or the org; joining requires the code and can never make you an
+admin.
+
+**It does not enforce §4's subtree rule.** "You see everyone below you and nobody sideways or
+above" is a graph traversal, and Firestore rules cannot walk a tree, so **tasks are readable
+by any member of the org** and the subtree rule is applied in the client. A determined member
+could read a task outside their subtree through the API. Hardening it means denormalising a
+`visibleTo` array onto each task — see the note at the top of `firestore.rules` and
+[DECISIONS.md](DECISIONS.md).
 
 ## Admin
 

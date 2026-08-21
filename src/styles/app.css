@@ -229,6 +229,24 @@ a:hover {
   overflow: hidden;
 }
 
+/* Sync trouble, said once at the top rather than as a toast that scrolls away. */
+.fatal-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-5);
+  padding: var(--sp-4) var(--sp-7);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-3);
+  color: var(--status-overdue);
+  font-size: var(--fs-sm);
+}
+
 /* Sidebar, top bar and the primary CTA are fixed; only the centre column scrolls. */
 .sidebar {
   flex: 0 0 var(--sidebar-w);

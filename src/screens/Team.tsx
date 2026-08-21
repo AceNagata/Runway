@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
+  Copy,
   Layers,
   MoveVertical,
   Pencil,
@@ -27,12 +28,16 @@ import {
   useToast,
 } from '../components/ui';
 import { TonePicker } from '../components/shell/FolderDialogs';
+import { readJoinCode } from '../lib/org';
 import { useStore } from '../store/StoreContext';
 import { descendants, directReports, reparentError, subtree } from '../domain/org';
 import { derivedStatus } from '../domain/tasks';
 import { measure, pct } from '../domain/reports';
 import { addDays, startOfDay } from '../lib/time';
 import type { Section, StatusTone, User } from '../store/types';
+
+/** The org is the first path segment; the router's basename hides it from every route. */
+const orgSlugFromLocation = () => location.pathname.split('/').filter(Boolean)[0] ?? '';
 
 /** The admin surface. §6.3 keeps it inside the web shell rather than making it a separate
  *  application, so this is the Team screen rather than a second app behind its own login.
@@ -446,37 +451,41 @@ function MemberRow({
   );
 }
 
-/** Creates the account outright. It is called "Add member" rather than "Send invite" because
- *  nothing is emailed — there is no backend to send from (DECISIONS.md Q8), and a button that
- *  claims to send an invite it never sends is worse than a plain one. */
+/** Members are not created here any more.
+ *
+ *  Firebase will not let one account create another from the browser — `createUserWithEmail`
+ *  signs you in *as* the new person — so an admin conjuring accounts needs the Admin SDK on a
+ *  server. Instead, people sign themselves up and join with the organisation's code, which is
+ *  also the only model that gives each of them a real password of their own.
+ *
+ *  So this dialog hands over the two things they need: the address, and the code. */
 export function InviteDialog({ onClose }: { onClose: () => void }) {
-  const { state, me, dispatch } = useStore();
+  const { me } = useStore();
   const toast = useToast();
-  const [name, setName] = useState('');
-  const [handle, setHandle] = useState('');
-  const [role, setRole] = useState('');
-  const [managerId, setManagerId] = useState(me.id);
-  const [sectionId, setSectionId] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [code, setCode] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const slug = orgSlugFromLocation();
+  const address = `${location.host}/${slug}`;
 
-  const managers = subtree(state, me.id);
-  const sections = Object.values(state.sections);
-
-  const submit = () => {
-    if (!name.trim()) {
-      setError('A member needs a name before you can add them.');
-      return;
-    }
-    dispatch({
-      type: 'org/invite',
-      name,
-      handle: handle || name.trim().split(/\s+/)[0].toLowerCase(),
-      role,
-      managerId,
-      sectionId: sectionId || null,
+  useEffect(() => {
+    let alive = true;
+    void readJoinCode(slug).then((value) => {
+      if (!alive) return;
+      setCode(value);
+      setLoading(false);
     });
-    toast(`Added ${name.trim()}.`);
-    onClose();
+    return () => {
+      alive = false;
+    };
+  }, [slug]);
+
+  const copy = async (what: string, value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast(`Copied the ${what}.`);
+    } catch {
+      toast(`Copy it by hand: ${value}`);
+    }
   };
 
   return (
@@ -484,62 +493,43 @@ export function InviteDialog({ onClose }: { onClose: () => void }) {
       title="Add member"
       onClose={onClose}
       actions={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={submit}>
-            Add member
-          </Button>
-        </>
+        <Button variant="primary" onClick={onClose}>
+          Done
+        </Button>
       }
     >
-      <Field label="Name">
-        <Input
-          value={name}
-          placeholder="Their full name"
-          onChange={(e) => {
-            setName(e.target.value);
-            setError(null);
-          }}
-          onKeyDown={(e) => e.key === 'Enter' && submit()}
-        />
+      <p className="muted" style={{ fontSize: 'var(--fs-sm)', lineHeight: 1.5 }}>
+        Send someone these two things. They open the address, create their own account, and
+        join with the code — then they appear in this tree under you, ready to be moved.
+      </p>
+
+      <Field label="Address">
+        <div style={{ display: 'flex', gap: 'var(--sp-4)' }}>
+          <Input className="input-mono" readOnly value={address} />
+          <Button variant="secondary" onClick={() => void copy('address', `https://${address}`)}>
+            <Copy size={16} {...ICON} />
+          </Button>
+        </div>
       </Field>
-      <Field label="Handle" hint="Used wherever numbers and IDs are shown.">
-        <Input
-          className="input-mono"
-          value={handle}
-          placeholder="@handle"
-          onChange={(e) => setHandle(e.target.value)}
-        />
+
+      <Field label="Join code" hint="Anyone with this can join, so share it deliberately.">
+        {loading ? (
+          <Input className="input-mono" readOnly value="…" />
+        ) : code ? (
+          <div style={{ display: 'flex', gap: 'var(--sp-4)' }}>
+            <Input className="input-mono" readOnly value={code} />
+            <Button variant="secondary" onClick={() => void copy('code', code)}>
+              <Copy size={16} {...ICON} />
+            </Button>
+          </div>
+        ) : (
+          <p className="caption">
+            {me.admin
+              ? 'The code could not be read. Reload and try again.'
+              : 'Only an admin can see the join code.'}
+          </p>
+        )}
       </Field>
-      <Field label="Role">
-        <Input value={role} placeholder="What they do" onChange={(e) => setRole(e.target.value)} />
-      </Field>
-      <Field label="Reports to" hint="This decides what they can see and who can hand them work.">
-        <Select value={managerId} onChange={(e) => setManagerId(e.target.value)}>
-          {managers.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.id === me.id ? `${u.name} (you)` : u.name}
-            </option>
-          ))}
-        </Select>
-      </Field>
-      <Field label="Section" hint="A label for reading the org. It grants nothing.">
-        <Select value={sectionId} onChange={(e) => setSectionId(e.target.value)}>
-          <option value="">No section</option>
-          {sections.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </Select>
-      </Field>
-      {error && (
-        <p className="tone-overdue" style={{ fontSize: 'var(--fs-sm)' }}>
-          {error}
-        </p>
-      )}
     </Dialog>
   );
 }

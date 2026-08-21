@@ -12,6 +12,12 @@
 
 export type PermissionState = 'unsupported' | 'default' | 'granted' | 'denied';
 
+/** The organisation's path prefix, e.g. "/ArenaErbil", or "" in the demo. */
+const orgBase = (): string => {
+  const first = location.pathname.split('/').filter(Boolean)[0];
+  return first ? `/${first}` : '';
+};
+
 export function notificationSupport(): PermissionState {
   if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
   return Notification.permission as Exclude<PermissionState, 'unsupported'>;
@@ -56,7 +62,9 @@ export async function showSystemNotification(n: SystemNotification): Promise<boo
     tag: n.tag ?? n.id,
     icon: '/icons/icon-192.png',
     badge: '/icons/badge-72.png',
-    data: { url: n.taskId ? `/tasks?task=${n.taskId}` : '/', notificationId: n.id },
+    // Absolute, including the organisation, because the worker opens this from outside any
+    // router — a bare /tasks would land on the wrong org, or on the sign-in gate.
+    data: { url: n.taskId ? `${orgBase()}/tasks?task=${n.taskId}` : orgBase() || '/', notificationId: n.id },
     // The product is calm: no vibration, no requireInteraction, no re-alerting.
     silent: false,
   };

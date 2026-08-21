@@ -56,9 +56,9 @@ export function loadState(ownerName?: string): RunwayState {
 
   // Ships empty. The demo org and its tasks are opt-in, so a public build never shows
   // invented work as though it were yours. The owner takes the name given at setup.
-  const fresh = buildFirstRun(ownerName);
-  saveState(fresh);
-  return fresh;
+  // Not persisted here: an organisation never writes to localStorage at all, and the demo's
+  // provider saves on its own once mounted.
+  return buildFirstRun(ownerName);
 }
 
 let writeHandle: number | undefined;

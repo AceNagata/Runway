@@ -118,6 +118,56 @@ Two details worth recording:
 - **Password reset always reports success**, whether or not the address is registered, so the
   form cannot be used to discover who has an account.
 
+## Organisations in the URL
+
+Asked for after review: an organisation should be an address — `/ArenaErbil` — not something
+bound to one browser. That is what moved the data off the device and into Firestore.
+
+Decisions worth recording:
+
+- **Frankfurt (`europe-west3`), chosen by the client.** Firestore's region is permanent; Doha
+  and Dammam were the lower-latency options for Erbil, Frankfurt the broader-feature one.
+- **Joining is by shared code, also the client's choice.** The alternatives were invite-by-email
+  (safest, needs every address up front) and open-by-link (anyone with the URL walks in). The
+  code is verified by security rules rather than by the page, so it cannot be bypassed from the
+  console.
+- **Members sign themselves up.** Firebase will not let one account create another from the
+  browser — `createUserWithEmailAndPassword` signs you in *as* the new person — so an admin
+  minting accounts needs the Admin SDK on a server, which needs the paid plan. Self-signup also
+  gives each person a real password of their own. "Add member" therefore hands over the address
+  and the code rather than creating anybody.
+- **The slug carries capitals, the document id does not.** `/ArenaErbil` and `/arenaerbil`
+  resolve to the same org; the address is stored as typed so the pretty one is what people see.
+- **The reducer was not rewritten.** `store/sync.ts` diffs successive states and writes only the
+  documents that changed, so every screen, action and domain function stayed as it was. The cost
+  is last-write-wins per document, which is acceptable for a team of 5–50 and would need proper
+  operational transforms to beat.
+- **Anything that replaces the whole board is demo-only.** Load demo data, start from empty and
+  the member switcher are hidden inside a real org, where they would wipe or impersonate shared
+  work.
+
+### The gap to close
+
+Security rules enforce org membership, private notes and per-recipient notifications. They do
+**not** enforce §4's subtree rule for tasks: it is a graph traversal, and rules cannot walk a
+tree, so tasks are org-readable and the tree is applied in the client. Closing it means writing
+a `visibleTo` array onto every task — the owner's manager chain plus the originator — and
+matching on it in the rules. It is cheap to add up front and expensive to retrofit, and it has
+to be recomputed for every affected task whenever the reporting tree changes. It is called out
+at the top of `firestore.rules` rather than half-built.
+
+Two bugs found while building this, both worth remembering:
+
+- **Creating an org was not atomic.** The org document was written first, then the join code and
+  the owner's membership in a batch — and the batch was denied, because the rule guarding the
+  join code asked whether you were an admin, which depends on the very member document being
+  created in that same batch. Rules evaluate against the state *before* a batch, so the answer
+  was always no. The rule now also admits the org's owner, and creation resumes a half-made org
+  rather than stranding the address.
+- **The listener echo had to be distinguished from a local edit**, or every incoming snapshot
+  would have been written straight back. `StoreContext` keeps what Firestore last reported and
+  diffs against that, not against the previous render.
+
 ## Smaller judgement calls
 
 - **Visibility beyond the subtree.** §4 says a user sees their subtree, and also says the

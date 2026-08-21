@@ -11,7 +11,7 @@ import { signOutOwner } from '../lib/auth';
 /** Mobile keeps home, tasks, schedule and notes on the tab bar; everything else lives in
  *  this grid. Reports and the team tree are read-only on a phone. §6.2 */
 export function Menu() {
-  const { state, me, dispatch } = useStore();
+  const { state, me, dispatch, isOrg } = useStore();
   const navigate = useNavigate();
   const [switching, setSwitching] = useState(false);
   const [loadingDemo, setLoadingDemo] = useState(false);
@@ -63,10 +63,14 @@ export function Menu() {
             Notifications
             {unread > 0 && <Mono className="tone-accent">{unread} unread</Mono>}
           </button>
-          <button className="menu-tile" onClick={() => setSwitching(true)}>
-            <UserRound size={24} {...ICON} />
-            Switch member
-          </button>
+          {/* Identity comes from the account you signed in with. Switching is a demo-only
+              way to see the permission model from somebody else's position. */}
+          {!isOrg && (
+            <button className="menu-tile" onClick={() => setSwitching(true)}>
+              <UserRound size={24} {...ICON} />
+              Switch member
+            </button>
+          )}
           <button
             className="menu-tile"
             onClick={() => {
@@ -76,15 +80,21 @@ export function Menu() {
             <LogOut size={24} {...ICON} />
             Sign out
           </button>
-          <button className="menu-tile" onClick={() => setLoadingDemo(true)}>
-            <Database size={24} {...ICON} />
-            Load demo data
-            <Mono className="faint">A sample team</Mono>
-          </button>
-          <button className="menu-tile" onClick={() => setClearing(true)}>
-            <RotateCcw size={24} {...ICON} />
-            Start from empty
-          </button>
+          {/* Both replace the entire board, which is fine for a local demo and destructive
+              for a shared organisation. */}
+          {!isOrg && (
+            <>
+              <button className="menu-tile" onClick={() => setLoadingDemo(true)}>
+                <Database size={24} {...ICON} />
+                Load demo data
+                <Mono className="faint">A sample team</Mono>
+              </button>
+              <button className="menu-tile" onClick={() => setClearing(true)}>
+                <RotateCcw size={24} {...ICON} />
+                Start from empty
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -96,8 +106,9 @@ export function Menu() {
       </Card>
 
       <p className="caption">
-        Runway keeps your work on this device and reconciles in the background, so the app
-        opens on what you last saw rather than a loading screen.
+        {isOrg
+          ? 'Your work lives with the organisation, so it is the same on every device you sign in from.'
+          : 'This is the demo. Nothing here is saved anywhere but this browser.'}
       </p>
 
       <div>

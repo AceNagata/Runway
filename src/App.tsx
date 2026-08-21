@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  BrowserRouter,
   Navigate,
   Route,
   Routes,
@@ -27,11 +28,12 @@ import { Reports } from './screens/Reports';
 import { Menu } from './screens/Menu';
 import { Folder } from './screens/Folder';
 import { SignIn } from './screens/SignIn';
+import { OrgGate } from './screens/OrgGate';
 import { StoreProvider, useNow, useStore } from './store/StoreContext';
 import { useIsMobile } from './lib/useMediaQuery';
 import { useSystemNotifications } from './lib/useSystemNotifications';
 import { ownerName, watchAuth, type AuthedOwner } from './lib/auth';
-import { setStorageScope } from './store/persist';
+import { readMember, readOrg, type Org } from './lib/org';
 
 const TITLES: Array<[RegExp, string]> = [
   [/^\/$/, 'Home'],
@@ -46,19 +48,27 @@ const TITLES: Array<[RegExp, string]> = [
   [/^\/menu/, 'Menu'],
 ];
 
-/** The gate sits outside StoreProvider, so nothing reads or writes a board until we know
- *  whose it is. `?demo=1` skips it entirely — the demo holds nothing worth protecting and a
- *  public demo link should not ask a stranger to make an account. */
+/** Resolves, in order: who you are, which organisation the URL points at, and whether you
+ *  belong to it. Only then does a board mount.
+ *
+ *  The organisation is the first path segment — /ArenaErbil — and it becomes the router's
+ *  basename, so every route and every navigate() inside the app stays exactly as it was.
+ *  Matching is case-insensitive (the document id is lower case) but the address keeps the
+ *  capitalisation somebody typed, because /ArenaErbil reads better than /arenaerbil. */
 export default function App() {
   const isDemo = new URLSearchParams(location.search).get('demo') === '1';
+  const pathSlug = location.pathname.split('/').filter(Boolean)[0] ?? null;
+  const orgId = pathSlug ? pathSlug.toLowerCase() : null;
+
   const [owner, setOwner] = useState<AuthedOwner | null>(null);
-  // Remembered from the sign-up form: the auth listener can fire before updateProfile lands,
-  // and the board should still be seeded with the name they actually typed.
-  const nameHint = useRef<string>('');
   // Firebase restores a session asynchronously, so "nobody is signed in" and "we have not
-  // looked yet" are different states. Showing the sign-in screen during the second one would
-  // flash it at somebody who is already signed in.
+  // looked yet" are different states. Showing sign-in during the second one would flash it
+  // at somebody who is already signed in.
   const [checked, setChecked] = useState(isDemo);
+  const [org, setOrg] = useState<Org | null>(null);
+  const [member, setMember] = useState<boolean | null>(null);
+  const [fatal, setFatal] = useState<string | null>(null);
+  const nameHint = useRef<string>('');
 
   useEffect(() => {
     if (isDemo) return;
@@ -67,6 +77,32 @@ export default function App() {
       setChecked(true);
     });
   }, [isDemo]);
+
+  // Look up the org named in the URL, and whether this account is in it.
+  useEffect(() => {
+    if (isDemo || !owner || !orgId) {
+      setMember(null);
+      return;
+    }
+    let alive = true;
+    setMember(null);
+    void (async () => {
+      const found = await readOrg(orgId).catch(() => null);
+      if (!alive) return;
+      setOrg(found);
+      if (!found) return setMember(false);
+      const mine = await readMember(orgId, owner.uid).catch(() => null);
+      if (alive) setMember(Boolean(mine));
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [isDemo, owner, orgId]);
+
+  const enter = useCallback((slug: string) => {
+    // A full load, so the router mounts with the new basename and the listeners attach once.
+    location.assign(`/${slug}`);
+  }, []);
 
   if (!checked) return <div className="gate" />;
 
@@ -84,24 +120,31 @@ export default function App() {
         />
       );
     }
-    // Keyed per account, so two people on one computer never open each other's board.
-    setStorageScope(owner.uid);
+    // No organisation in the URL, or one this account is not in yet.
+    if (!orgId || member === false) {
+      return <OrgGate owner={owner} slug={orgId} org={org} onReady={enter} />;
+    }
+    if (member === null) return <div className="gate" />;
   }
 
   return (
-    <StoreProvider
-      key={owner?.uid ?? 'demo'}
-      ownerName={owner ? ownerName(owner, nameHint.current) : undefined}
-    >
-      <ToastHost>
-        <Shell />
-      </ToastHost>
-    </StoreProvider>
+    <BrowserRouter basename={isDemo ? undefined : `/${pathSlug}`}>
+      <StoreProvider
+        key={orgId ?? 'demo'}
+        ownerName={owner ? ownerName(owner, nameHint.current) : undefined}
+        org={isDemo || !owner || !orgId ? undefined : { slug: orgId, uid: owner.uid }}
+        onError={setFatal}
+      >
+        <ToastHost>
+          <Shell fatal={fatal} onDismissFatal={() => setFatal(null)} />
+        </ToastHost>
+      </StoreProvider>
+    </BrowserRouter>
   );
 }
 
-function Shell() {
-  const { state } = useStore();
+function Shell({ fatal, onDismissFatal }: { fatal: string | null; onDismissFatal: () => void }) {
+  const { state, ready } = useStore();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -164,8 +207,20 @@ function Shell() {
 
   const title = TITLES.find(([re]) => re.test(pathname))?.[1] ?? 'Runway';
 
+  // Only ever true on the very first load of an organisation, before any of its documents
+  // have arrived. A returning visitor to the demo, or a second render here, never sees it.
+  if (!ready) return <div className="gate" />;
+
   return (
     <div className="app">
+      {fatal && (
+        <div className="fatal-bar" role="alert">
+          <span>{fatal}</span>
+          <Button variant="ghost" size="sm" onClick={onDismissFatal}>
+            Dismiss
+          </Button>
+        </div>
+      )}
       <Sidebar />
 
       <main className="main">
