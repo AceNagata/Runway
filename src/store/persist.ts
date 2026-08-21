@@ -1,9 +1,18 @@
 import { buildFirstRun, buildSeed } from '../data/seed';
-import { readAccount } from '../lib/lock';
 import type { RunwayState } from './types';
 
 // v4 added org sections. v3 added the fired-reminder record. v2 dropped timeEntries.
-const KEY = 'runway.state.v4';
+const BASE_KEY = 'runway.state.v4';
+
+/** The board is keyed per signed-in account, so two people sharing a computer never open
+ *  each other's work. Set once at sign-in, before the store mounts. */
+let scope = '';
+
+export function setStorageScope(uid: string): void {
+  scope = uid;
+}
+
+const key = () => (scope ? `${BASE_KEY}.${scope}` : BASE_KEY);
 
 /** A cache written by an older build is missing whatever collections that build did not have.
  *  Reading it must never crash the app, so every collection is backfilled here rather than
@@ -25,7 +34,7 @@ function normalise(parsed: Partial<RunwayState>): RunwayState {
 
 /** Home renders from cached local state immediately on load and reconciles with the
  *  server in the background — never a full-screen loading state for a returning user. §3 */
-export function loadState(): RunwayState {
+export function loadState(ownerName?: string): RunwayState {
   // `?demo=1` is checked before the cache, so a demo link works for a returning visitor and
   // not only on a first-ever load. It is the one thing allowed to overwrite existing state,
   // which is why it is an explicit URL flag rather than anything the app does on its own.
@@ -36,7 +45,7 @@ export function loadState(): RunwayState {
   }
 
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(key());
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<RunwayState>;
       if (parsed?.tasks && parsed?.users && parsed?.session) return normalise(parsed);
@@ -47,7 +56,7 @@ export function loadState(): RunwayState {
 
   // Ships empty. The demo org and its tasks are opt-in, so a public build never shows
   // invented work as though it were yours. The owner takes the name given at setup.
-  const fresh = buildFirstRun(readAccount()?.name);
+  const fresh = buildFirstRun(ownerName);
   saveState(fresh);
   return fresh;
 }
@@ -58,7 +67,7 @@ export function saveState(state: RunwayState): void {
   if (writeHandle) clearTimeout(writeHandle);
   writeHandle = window.setTimeout(() => {
     try {
-      localStorage.setItem(KEY, JSON.stringify(state));
+      localStorage.setItem(key(), JSON.stringify(state));
     } catch {
       // Storage full or blocked — the in-memory store is still the source of truth.
     }
@@ -69,9 +78,9 @@ export function saveState(state: RunwayState): void {
  *  demo data somebody was trying out, most likely — would survive setup and the organiser
  *  would land in somebody else's organisation. */
 export function startBoardForOwner(name: string): void {
-  localStorage.setItem(KEY, JSON.stringify(buildFirstRun(name)));
+  localStorage.setItem(key(), JSON.stringify(buildFirstRun(name)));
 }
 
 export function clearState(): void {
-  localStorage.removeItem(KEY);
+  localStorage.removeItem(key());
 }

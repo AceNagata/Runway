@@ -89,32 +89,34 @@ keeps its tasks and notes — same rule, so neither surprises anyone.
 account outright, and with no backend to send mail from, a button promising an invite would be
 claiming something the product does not do.
 
-## The owner's passphrase
+## The owner's account
 
 Asked for after review: the organiser who buys Runway should name themselves and set a
-password. The name half is straightforward and real. The password half is not, and the
-implementation is deliberately honest about it.
+password. This shipped in two passes.
 
-**With no backend, a client-side password cannot protect data.** The tasks and notes live in
-`localStorage` in plain text; any password check runs in code the visitor controls, and the
-record behind it can simply be deleted. So what shipped is a **device lock**, labelled as one
-on both the setup and lock screens, rather than a login box implying account security that
-does not exist.
+The first pass had no backend, so it was a **local device lock** — PBKDF2 over a passphrase,
+labelled honestly as "locks this browser" rather than dressed up as account security, because
+a client-side check on plaintext local data is a lock on a door with no walls.
 
-What is still done properly, because there was no reason to do it badly:
+The second pass replaced it with **Firebase Auth**, once a probe showed the Email/Password
+provider was already enabled on the project. That is a genuine upgrade: the password is
+verified server side, never touches our code beyond being typed, works on any device, and can
+be reset over email instead of only by erasing everything. `src/lib/lock.ts` was deleted
+rather than kept alongside — two competing notions of "signed in" is how sessions get confusing.
 
-- The passphrase is never stored. Only a PBKDF2-SHA-256 derivation is — 200,000 iterations,
-  16 random bytes of salt — so the stored record does not reveal it and the same passphrase
-  produces a different record on each device.
-- Verification compares in constant time.
-- The credential lives in its own `localStorage` key, not in `RunwayState`, so loading or
-  clearing the demo cannot lock the owner out.
-- "I've forgotten it" offers only to erase and start over, and says so, because there is
-  genuinely nobody to reset it. Pretending otherwise would lose someone their data.
+What is still true, and what the sign-in screen says: **the account is portable, the work is
+not.** Tasks and notes remain in `localStorage`, now keyed per account so two people sharing a
+computer cannot open each other's board. Making the work follow the account needs Firestore,
+which is the remaining piece.
 
-Real accounts need Firebase Auth (passwords held by Google, never by us) plus Firestore for
-shared data. `src/lib/lock.ts` is the seam: replace derive/verify with
-`signInWithEmailAndPassword` and the screens above it do not change.
+Two details worth recording:
+
+- **The board is seeded from the name typed at sign-up, not from the auth listener.** Firebase
+  emits `onAuthStateChanged` the moment the user exists, which is *before* `updateProfile`
+  lands, so reading the display name there seeded boards named after the email prefix. The
+  sign-up form now hands the typed name over before creating the account.
+- **Password reset always reports success**, whether or not the address is registered, so the
+  form cannot be used to discover who has an account.
 
 ## Smaller judgement calls
 

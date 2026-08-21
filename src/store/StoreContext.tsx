@@ -29,8 +29,15 @@ interface StoreValue {
 
 const StoreContext = createContext<StoreValue | null>(null);
 
-export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, undefined, loadState);
+export function StoreProvider({
+  children,
+  ownerName,
+}: {
+  children: ReactNode;
+  /** The signed-in account's name, used only when seeding a brand-new empty board. */
+  ownerName?: string;
+}) {
+  const [state, dispatch] = useReducer(reducer, ownerName, loadState);
   const [online, setOnline] = useState(() => navigator.onLine);
   const drainRef = useRef<number | undefined>(undefined);
 

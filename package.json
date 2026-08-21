@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Runway \u2014 a shared planning surface for small teams: notes, tasks, scheduling, hand-off, reports.",
+  "description": "Runway — a shared planning surface for small teams: notes, tasks, scheduling, hand-off, reports.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build && node scripts/stamp-sw.mjs",
@@ -12,6 +12,7 @@
     "deploy": "npm run build && firebase deploy --only hosting"
   },
   "dependencies": {
+    "firebase": "^12.18.0",
     "lucide-react": "0.469.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Navigate,
   Route,
@@ -26,12 +26,12 @@ import { Team } from './screens/Team';
 import { Reports } from './screens/Reports';
 import { Menu } from './screens/Menu';
 import { Folder } from './screens/Folder';
-import { Setup } from './screens/Setup';
-import { Lock } from './screens/Lock';
+import { SignIn } from './screens/SignIn';
 import { StoreProvider, useNow, useStore } from './store/StoreContext';
 import { useIsMobile } from './lib/useMediaQuery';
 import { useSystemNotifications } from './lib/useSystemNotifications';
-import { hasAccount, isUnlocked } from './lib/lock';
+import { ownerName, watchAuth, type AuthedOwner } from './lib/auth';
+import { setStorageScope } from './store/persist';
 
 const TITLES: Array<[RegExp, string]> = [
   [/^\/$/, 'Home'],
@@ -46,26 +46,53 @@ const TITLES: Array<[RegExp, string]> = [
   [/^\/menu/, 'Menu'],
 ];
 
-/** The gate sits outside StoreProvider, so nothing reads or writes the board until the owner
- *  is through it. `?demo=1` skips the gate entirely — the demo holds nothing worth locking and
- *  a public demo link should not ask a stranger to invent a passphrase. */
+/** The gate sits outside StoreProvider, so nothing reads or writes a board until we know
+ *  whose it is. `?demo=1` skips it entirely — the demo holds nothing worth protecting and a
+ *  public demo link should not ask a stranger to make an account. */
 export default function App() {
   const isDemo = new URLSearchParams(location.search).get('demo') === '1';
-  const [state, setState] = useState<'setup' | 'locked' | 'open'>(() => {
-    if (isDemo) return 'open';
-    if (!hasAccount()) return 'setup';
-    return isUnlocked() ? 'open' : 'locked';
-  });
+  const [owner, setOwner] = useState<AuthedOwner | null>(null);
+  // Remembered from the sign-up form: the auth listener can fire before updateProfile lands,
+  // and the board should still be seeded with the name they actually typed.
+  const nameHint = useRef<string>('');
+  // Firebase restores a session asynchronously, so "nobody is signed in" and "we have not
+  // looked yet" are different states. Showing the sign-in screen during the second one would
+  // flash it at somebody who is already signed in.
+  const [checked, setChecked] = useState(isDemo);
 
-  if (state === 'setup') {
-    // Reload rather than transitioning: the store seeds its owner from the saved name, and
-    // reading it once at load is simpler than teaching the store to change identity midway.
-    return <Setup onDone={() => location.replace('/')} />;
+  useEffect(() => {
+    if (isDemo) return;
+    return watchAuth((next) => {
+      setOwner(next);
+      setChecked(true);
+    });
+  }, [isDemo]);
+
+  if (!checked) return <div className="gate" />;
+
+  if (!isDemo) {
+    if (!owner) {
+      return (
+        <SignIn
+          onIntent={(n) => {
+            nameHint.current = n;
+          }}
+          onAuthed={(next) => {
+            nameHint.current = next.name || nameHint.current;
+            setOwner(next);
+          }}
+        />
+      );
+    }
+    // Keyed per account, so two people on one computer never open each other's board.
+    setStorageScope(owner.uid);
   }
-  if (state === 'locked') return <Lock onUnlocked={() => setState('open')} />;
 
   return (
-    <StoreProvider>
+    <StoreProvider
+      key={owner?.uid ?? 'demo'}
+      ownerName={owner ? ownerName(owner, nameHint.current) : undefined}
+    >
       <ToastHost>
         <Shell />
       </ToastHost>

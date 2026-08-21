@@ -60,6 +60,8 @@ src/
                      Team is the admin surface: members, sections, reporting tree
   data/seed.ts       buildFirstRun() is the default empty state; buildSeed() is the opt-in demo
   lib/notify.ts      Permission, system notifications, service-worker registration
+  lib/firebase.ts    Firebase app + auth init (config is public by design)
+  lib/auth.ts        Sign up, sign in, reset, and readable messages for Firebase codes
 public/sw.js         Install, offline shell, notification clicks, a ready `push` handler
 public/manifest.webmanifest
 ```
@@ -123,27 +125,28 @@ The wordmark is live type — `Runway` in Manrope 800 at -0.02em. The mark is th
 runway from the supplied brand sheet, on its 48-unit grid with the 30/60/100 opacity ramp
 intact; it is never recoloured per column, rotated or stretched (`components/ui/Mark.tsx`).
 
-## Setting up, and the lock
+## Accounts
 
-On a real first run Runway asks the organiser for **their name and a passphrase**. The name
-becomes the owner member at the root of the reporting tree, so greetings, avatars and every
-chain of custody read properly, and everyone else is added underneath them. The board starts
-empty and owned by them.
+Runway uses **Firebase Auth**. The organiser who buys it creates an account with their name,
+email and password; that name becomes the owner member at the root of the reporting tree, so
+greetings, avatars and every chain of custody read properly, and everyone else is added
+underneath them.
 
-**The passphrase locks this browser. It is not an account, and the UI says so on both screens.**
-The passphrase itself is never stored — what is stored is a PBKDF2-SHA-256 derivation (200,000
-iterations, 16 random bytes of salt), so reading the stored record does not reveal it. But the
-tasks and notes are plain text in `localStorage`: anyone with developer tools on that machine
-can read them, or clear the record to get past the lock. It keeps a passer-by out of an
-unattended browser and nothing more. There is also nobody to reset it, so "I've forgotten it"
-can only offer to erase and start over — and says exactly that.
+The password is real: checked server side by Firebase, never stored or seen by this code, and
+resettable over email from **Forgotten your password?**. It works on any device and survives a
+cleared browser.
 
-Real accounts — a password that survives a cleared browser, works on a second device, and is
-verified by something other than the code asking the question — need Firebase Auth plus
-Firestore. `src/lib/lock.ts` is deliberately the only module that would change.
+**What it does not yet do is move the work.** Tasks and notes still live in the browser
+(DECISIONS.md Q8), keyed per account so two people sharing a computer never open each other's
+board. Sign in on a second machine and you get a real session and an empty board. The sign-in
+screen says exactly this rather than implying sync.
 
-`?demo=1` skips the gate: the demo holds nothing worth locking, and a public demo link should
-not ask a stranger to invent a passphrase. **Menu → Lock Runway** locks on demand.
+`?demo=1` skips the gate: the demo holds nothing worth protecting and a public demo link
+should not ask a stranger to make an account. **Menu → Sign out** ends the session.
+
+The Firebase web config in `src/lib/firebase.ts` is committed on purpose — those values are
+identifiers, not secrets, and ship in the bundle of every Firebase web app. Accounts are
+protected by Auth verifying the password, not by hiding that file.
 
 ## Admin
 
