@@ -191,8 +191,8 @@ export function StorageCaveat() {
       <ShieldCheck size={16} {...ICON} className="faint" style={{ flex: '0 0 16px', marginTop: 2 }} />
       <p className="caption" style={{ lineHeight: 1.5 }}>
         Your account and password are held by Firebase, so they work on any device and can be
-        reset by email. Your tasks and notes are still stored in this browser — they do not yet
-        follow you to another computer, and teammates you add cannot sign in to see them.
+        reset by email. Your organisation's tasks and notes live with it, so they follow you to
+        any computer you sign in from, and everyone in the organisation sees the same board.
       </p>
     </div>
   );

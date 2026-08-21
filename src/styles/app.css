@@ -229,6 +229,30 @@ a:hover {
   overflow: hidden;
 }
 
+/* The Runway admin panel at /admin. No sidebar and no action bar: it is one level above
+   every organisation, so none of the board's navigation applies to it. */
+.admin-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* The panel's bar carries an email and three controls, which is more than a phone can hold
+   on one line. The email and the badge go first: neither is an action, and losing Sign out
+   off the right edge is the one failure that strands somebody. */
+@media (max-width: 767px) {
+  .admin-shell .topbar {
+    gap: var(--sp-4);
+    padding: 0 var(--sp-5);
+  }
+
+  .admin-shell .topbar .badge,
+  .admin-shell .topbar-right > .mono {
+    display: none;
+  }
+}
+
 /* Sync trouble, said once at the top rather than as a toast that scrolls away. */
 .fatal-bar {
   position: fixed;

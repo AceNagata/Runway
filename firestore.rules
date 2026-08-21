@@ -33,6 +33,60 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    /* ---------------------------------------------------------------- Runway platform
+
+       Above the organisations sits Runway itself. A platform admin issues the invite codes
+       that let somebody create an organisation, and can see and close accounts.
+
+       Bootstrapping is deliberately done in the Firebase console rather than in the app:
+       create a document at platformAdmins/{your-uid}. Any "first person to claim it wins"
+       rule would be a race on a public URL, and any bootstrap secret would have to live
+       somewhere — in this file, in the repository, or in a chat log. The console is the one
+       place that already proves who owns the project. */
+
+    function isPlatformAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/platformAdmins/$(request.auth.uid));
+    }
+
+    match /platformAdmins/{uid} {
+      // You may check whether you are one; a list is admins-only.
+      allow get: if signedIn() && (request.auth.uid == uid || isPlatformAdmin());
+      allow list: if isPlatformAdmin();
+      // Never self-granted. Either the console, or an existing platform admin.
+      allow create, update, delete: if isPlatformAdmin();
+    }
+
+    /* An invitation to create one organisation. The code is the document id, so claiming it
+       is a single-document write — which is what makes two people racing the same code safe:
+       Firestore commits one and the other's rule then sees it already taken. */
+    match /orgInvites/{code} {
+      allow get: if signedIn();
+      allow list: if isPlatformAdmin();
+      allow create, delete: if isPlatformAdmin();
+
+      /* The claim names both the account and the address, in one write, once.
+         The address matters: org creation below asks only whether the invite is yours, and
+         that stays true forever, so without pinning an address one code would mint
+         organisations without limit. `usedBy == null` closes the branch after the first
+         claim, which is also why the address cannot be edited afterwards. */
+      allow update: if
+        // A platform admin revoking or annotating it.
+        isPlatformAdmin()
+        // Or the one-time claim: unused, not revoked, claimed as yourself, for one address.
+        || (signedIn()
+            && resource.data.usedBy == null
+            && resource.data.revoked == false
+            && request.resource.data.usedBy == request.auth.uid
+            && request.resource.data.orgSlug is string
+            && request.resource.data.code == resource.data.code
+            && request.resource.data.revoked == false);
+    }
+
+    function invite(code) {
+      return get(/databases/$(database)/documents/orgInvites/$(code)).data;
+    }
+
     function isMember(orgId) {
       return signedIn()
         && exists(/databases/$(database)/documents/orgs/$(orgId)/members/$(request.auth.uid));
@@ -56,13 +110,25 @@ service cloud.firestore {
 
     match /orgs/{orgId} {
       // Name and slug only — enough to render "Join Arena Erbil" before you are a member.
-      // Never listable, so the set of customers cannot be enumerated.
+      // Listable only by Runway staff, so customers cannot be enumerated by anyone else.
       allow get: if signedIn();
-      allow list: if false;
+      allow list: if isPlatformAdmin();
+      /* Creating an organisation is not open. Either you are Runway staff, or you hold an
+         invite code you have already claimed *for this address* — which is why the claim
+         happens first and this only has to check that it names you and names this org. */
       allow create: if signedIn()
         && request.resource.data.ownerUid == request.auth.uid
-        && request.resource.data.slug == orgId;
-      allow update: if isAdmin(orgId);
+        && request.resource.data.slug == orgId
+        && (
+          isPlatformAdmin()
+          || (
+            request.resource.data.inviteCode is string
+            && invite(request.resource.data.inviteCode).usedBy == request.auth.uid
+            && invite(request.resource.data.inviteCode).orgSlug == orgId
+            && invite(request.resource.data.inviteCode).revoked == false
+          )
+        );
+      allow update: if isAdmin(orgId) || isPlatformAdmin();
       allow delete: if false;
 
       /* The join code. Readable by admins; every other check reaches it through the rules'

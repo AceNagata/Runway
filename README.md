@@ -138,9 +138,12 @@ and every `navigate()` inside the app is unchanged by this. Matching is case-ins
 Firestore document id is lower case) while the URL keeps whatever capitals were typed —
 `/arenaerbil` and `/ArenaErbil` are the same org, and the second is what people see.
 
-**Setting one up.** Sign up, then name the organisation and choose its address; "Arena Erbil"
-suggests `ArenaErbil`. You become the owner at the root of the reporting tree, and Runway
-shows you a **join code** once.
+**Setting one up is by invitation.** You need a code from Runway — see
+[Runway admin](#runway-admin) below. With one in hand: sign up, enter the code, then name the
+organisation and choose its address; "Arena Erbil" suggests `ArenaErbil`. You become the owner
+at the root of the reporting tree, and Runway shows you a **join code** once. A code is good
+for exactly one organisation, at one address, and it is the security rules that hold it to
+that — not the page.
 
 **Joining.** Anyone who opens `/ArenaErbil`, creates an account, and enters the join code lands
 in the org under the owner, ready to be moved in Team. A stranger who finds the URL without
@@ -153,7 +156,9 @@ it is pointless. The code lives in **Team → Add member** alongside the address
 broadest feature support. The region is permanent.
 
 ```
-orgs/{slug}                     name, address, ownerUid
+platformAdmins/{uid}            Runway staff — one document per person
+orgInvites/{code}               who it went to, who claimed it, for which address
+orgs/{slug}                     name, address, ownerUid, the invite it was created with
 orgs/{slug}/private/config      the join code — never readable outside the org
 orgs/{slug}/members/{uid}       one per person, keyed by their Firebase uid
 orgs/{slug}/{sections,folders,tasks,notes,notifications}
@@ -174,7 +179,8 @@ local to the browser, needs no account, and writes to nobody's data.
 `firestore.rules` enforces: you must be a member of an org to read any of its work; private
 notes are readable only by their owner; notifications only by their recipient; only admins
 edit membership, sections or the org; joining requires the code and can never make you an
-admin.
+admin; creating an organisation takes an invite claimed for that exact address, or Runway
+staff; and nobody can promote themselves to staff or mint their own invite.
 
 **It does not enforce §4's subtree rule.** "You see everyone below you and nobody sideways or
 above" is a graph traversal, and Firestore rules cannot walk a tree, so **tasks are readable
@@ -204,9 +210,34 @@ From here an admin can add a member (choosing both their manager and their secti
 member's role, section and admin flag, move them to a different manager, and remove them —
 which re-parents their reports and reassigns their open tasks upward, never orphaning either.
 
-"Add member" creates the account outright rather than emailing anything, because there is no
-backend to send from; calling it "Send invite" would have been a button that lies. On mobile
-the tree is read-only (§6.2), so the editing controls are hidden and a line of copy says why.
+"Add member" hands over the organisation's address and join code rather than creating an
+account: Firebase will not let one account create another from the browser —
+`createUserWithEmailAndPassword` signs you in *as* the new person — so people sign themselves
+up and each ends up with a real password of their own. On mobile the tree is read-only (§6.2),
+so the editing controls are hidden and a line of copy says why.
+
+## Runway admin
+
+One level above every organisation is Runway's own panel at **`/admin`**. It is where
+organisations come from, and it is staff-only.
+
+- **Organisations** — every one on the platform, with its address. Staff can open one, but
+  reading inside it still needs a member document, so the list is not a back door into anyone's
+  work.
+- **Invites** — issue a code, note who it is for, copy it, and withdraw it if it goes astray.
+  A code works once, for one address. Used and withdrawn codes stay on the list rather than
+  disappearing, so the record of what was issued survives.
+- **Runway staff** — add or remove the people who can see this panel.
+
+Staff can also create an organisation directly: "Create one directly" drops into the ordinary
+setup flow, which skips the invite field when you are staff.
+
+**The first admin is created in the Firebase console.** Sign in, open `/admin`, and it names
+the exact document to create — `platformAdmins/{your-uid}` — with your account id ready to
+copy. Reload and the panel opens. After that, staff add each other from the panel itself.
+This one step is deliberate rather than an omission: every self-service alternative either
+races on a public URL or puts a bootstrap secret somewhere it can leak. See
+[DECISIONS.md](DECISIONS.md).
 
 ## Notifications
 

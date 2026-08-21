@@ -4,6 +4,7 @@ import { Button, Card, Eyebrow, Field, ICON, Input, Mono } from '../components/u
 import { Wordmark } from '../components/ui/Mark';
 import { signOutOwner, type AuthedOwner } from '../lib/auth';
 import { createOrg, joinOrg, normaliseSlug, orgIdOf, slugError, suggestSlug, type Org } from '../lib/org';
+import { claimInvite, isPlatformAdmin } from '../lib/platform';
 
 /** What a signed-in person sees when the URL does not resolve to an org they belong to.
  *
@@ -28,9 +29,21 @@ export function OrgGate({
   const [name, setName] = useState(org?.name ?? '');
   const [address, setAddress] = useState(slug ?? '');
   const [code, setCode] = useState('');
+  /** The Runway invite that permits creating an organisation at all. */
+  const [invite, setInvite] = useState('');
+  const [staff, setStaff] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<{ slug: string; joinCode: string } | null>(null);
+
+  // Runway staff create organisations without an invite; everyone else needs one.
+  useEffect(() => {
+    let alive = true;
+    void isPlatformAdmin(owner.uid).then((yes) => alive && setStaff(yes));
+    return () => {
+      alive = false;
+    };
+  }, [owner.uid]);
 
   // Typing a name suggests the address, until the address is edited by hand.
   const [addressTouched, setAddressTouched] = useState(Boolean(slug));
@@ -57,7 +70,25 @@ export function OrgGate({
     if (problem) return setError(problem);
 
     setBusy(true);
-    const result = await createOrg(name, typed, { uid: owner.uid, name: owner.name });
+
+    // Claim the invite first, against this exact address. It is a single-document write, so
+    // two people racing the same code cannot both win — and doing it before the org means a
+    // failed claim costs nothing. The address is part of the claim because that is what caps
+    // one code at one organisation; see claimInvite().
+    if (!staff) {
+      const refused = await claimInvite(invite, owner.uid, orgIdOf(typed), typed);
+      if (refused) {
+        setBusy(false);
+        return setError(refused);
+      }
+    }
+
+    const result = await createOrg(
+      name,
+      typed,
+      { uid: owner.uid, name: owner.name },
+      staff ? undefined : invite.trim().toUpperCase(),
+    );
     setBusy(false);
     if (result.error) return setError(result.error);
     // Show the code once before going in — it is the only way anyone else gets in.
@@ -116,7 +147,9 @@ export function OrgGate({
           <p className="muted" style={{ fontSize: 'var(--fs-body)', lineHeight: 1.5, textWrap: 'pretty' }}>
             {joining
               ? 'You need the join code from whoever set this up.'
-              : 'It gets its own address, and everyone you invite works inside it.'}
+              : staff
+                ? 'Runway staff: this one is created without an invite.'
+                : 'It gets its own address, and everyone you invite works inside it.'}
           </p>
         </div>
 
@@ -134,6 +167,19 @@ export function OrgGate({
             </Field>
           ) : (
             <>
+              {!staff && (
+                <Field
+                  label="Runway invite code"
+                  hint="Organisations are created by invitation. Ask Runway for one."
+                >
+                  <Input
+                    className="input-mono"
+                    value={invite}
+                    placeholder="XXXX-XXXX"
+                    onChange={(e) => setInvite(e.target.value.toUpperCase())}
+                  />
+                </Field>
+              )}
               <Field label="Organisation name">
                 <Input
                   value={name}

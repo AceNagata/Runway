@@ -94,11 +94,16 @@ export interface CreateOrgResult {
 
 
 /** Creates the org, its join code, and the owner's own member document — the owner is the
- *  root of the reporting tree, which is why they have no manager. */
+ *  root of the reporting tree, which is why they have no manager.
+ *
+ *  `inviteCode` must already be claimed by this account (see platform.claimInvite), or be
+ *  omitted by a platform admin creating one directly. The security rules check both; passing
+ *  a code you have not claimed simply fails. */
 export async function createOrg(
   name: string,
   typedSlug: string,
   owner: { uid: string; name: string },
+  inviteCode?: string,
 ): Promise<CreateOrgResult> {
   const problem = slugError(typedSlug);
   if (problem) return { error: problem };
@@ -117,7 +122,15 @@ export async function createOrg(
 
   try {
     // The org document must exist before the member rule can check ownerUid against it.
-    if (!existing) await setDoc(orgRef(slug), { ...org, createdAt: serverTimestamp() });
+    if (!existing) {
+      await setDoc(orgRef(slug), {
+        ...org,
+        // Recorded on the org so the rule can verify the claim, and so the panel can trace
+        // which invite produced which customer.
+        ...(inviteCode ? { inviteCode: inviteCode.trim().toUpperCase() } : {}),
+        createdAt: serverTimestamp(),
+      });
+    }
 
     const batch = writeBatch(db);
     batch.set(configRef(slug), { joinCode });
@@ -134,7 +147,14 @@ export async function createOrg(
 
     return { org, joinCode };
   } catch (e) {
-    return { error: describe(e, 'That organisation could not be created.') };
+    return {
+      error: describe(
+        e,
+        inviteCode
+          ? 'That organisation could not be created. The invite code may already be used.'
+          : 'That organisation could not be created.',
+      ),
+    };
   }
 }
 

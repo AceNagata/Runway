@@ -168,6 +168,43 @@ Two bugs found while building this, both worth remembering:
   would have been written straight back. `StoreContext` keeps what Firestore last reported and
   diffs against that, not against the previous render.
 
+## Invite-only organisations
+
+Asked for after review: nobody should be able to create an organisation just by signing up.
+One comes from an invite code issued in Runway's own admin panel at **/admin**.
+
+- **Platform admins are a collection, not a claim.** `platformAdmins/{uid}` — a document per
+  member of Runway staff. Custom auth claims would be tidier and cheaper to check, but setting
+  one needs the Admin SDK on a server, which needs the paid plan. A document is readable from
+  the rules with `exists()`, which is all the gate needs.
+- **The first admin is created in the Firebase console, deliberately.** Every self-service
+  alternative is worse: "first person to claim it wins" is a race on a public URL, and a
+  bootstrap secret has to live in the repository, in a build, or in a chat log. The console is
+  the one place that already proves who owns the project. `/admin` shows a refusal screen
+  naming the exact document to create, so it is a copy-and-paste rather than a hunt.
+- **A code is claimed for one account *and one address*, in one write.** This is the part that
+  is easy to get wrong. The rule guarding org creation asks "is the invite you named already
+  claimed by you?" — and that stays true forever once claimed, so a code that only recorded
+  *who* used it would mint organisations without limit. Recording the address at the same
+  moment caps it at one, and the claim branch closes as soon as `usedBy` is set, so the address
+  cannot be edited afterwards either.
+- **A single-document update is the claim.** Firestore makes it atomic, so two people racing
+  the same code cannot both win, and a failed claim costs nothing because it happens before the
+  organisation is written.
+- **Codes are withdrawn, never deleted.** The record stays in the list so it is visible that
+  one was issued and pulled. An audit trail you can erase from the same screen is not one.
+- **Staff are added by account id.** Firebase gives the browser no way to look somebody up by
+  email, so the new person signs up, opens `/admin`, and reads their id off the refusal screen.
+- **Anyone signed in can read an invite document by its exact id.** That is what lets the setup
+  screen say "already used" or "withdrawn" instead of a blank refusal. A code is eight
+  characters from a 31-letter alphabet, so guessing one is not a practical attack, and all it
+  carries is the note staff wrote to themselves.
+- **`/admin` is a reserved slug**, and sits outside the organisation router entirely — it is
+  one level above every organisation, so none of the board's navigation applies to it.
+
+Runway staff are not members of any organisation and cannot read its work: the panel lists
+organisations, and reading inside one still requires a member document.
+
 ## Smaller judgement calls
 
 - **Visibility beyond the subtree.** §4 says a user sees their subtree, and also says the

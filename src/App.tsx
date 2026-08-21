@@ -29,6 +29,7 @@ import { Menu } from './screens/Menu';
 import { Folder } from './screens/Folder';
 import { SignIn } from './screens/SignIn';
 import { OrgGate } from './screens/OrgGate';
+import { AdminPanel } from './screens/AdminPanel';
 import { StoreProvider, useNow, useStore } from './store/StoreContext';
 import { useIsMobile } from './lib/useMediaQuery';
 import { useSystemNotifications } from './lib/useSystemNotifications';
@@ -57,7 +58,11 @@ const TITLES: Array<[RegExp, string]> = [
  *  capitalisation somebody typed, because /ArenaErbil reads better than /arenaerbil. */
 export default function App() {
   const isDemo = new URLSearchParams(location.search).get('demo') === '1';
-  const pathSlug = location.pathname.split('/').filter(Boolean)[0] ?? null;
+  const first = location.pathname.split('/').filter(Boolean)[0] ?? null;
+  // /admin is Runway's own panel, not an organisation. It is in the reserved list in
+  // lib/org.ts, so no organisation can ever take the address out from under it.
+  const isAdminPanel = first?.toLowerCase() === 'admin';
+  const pathSlug = isAdminPanel ? null : first;
   const orgId = pathSlug ? pathSlug.toLowerCase() : null;
 
   const [owner, setOwner] = useState<AuthedOwner | null>(null);
@@ -120,6 +125,7 @@ export default function App() {
         />
       );
     }
+    if (isAdminPanel) return <AdminPanel owner={owner} />;
     // No organisation in the URL, or one this account is not in yet.
     if (!orgId || member === false) {
       return <OrgGate owner={owner} slug={orgId} org={org} onReady={enter} />;
